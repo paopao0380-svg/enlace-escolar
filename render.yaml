@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: enlace-escolar-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+
+  - type: web
+    name: enlace-escolar-app
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: echo "sitio estatico, no requiere build"
+    staticPublishPath: .

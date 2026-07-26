@@ -1,0 +1,3 @@
+# Enlace Escolar API no usa ninguna dependencia externa:
+# solo módulos de la librería estándar de Python (http.server, sqlite3, json, re).
+# Este archivo existe únicamente para que Render reconozca el proyecto como Python.
