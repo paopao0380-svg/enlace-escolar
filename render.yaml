@@ -13,7 +13,6 @@ services:
   - type: web
     name: enlace-escolar-app
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: echo "sitio estatico, no requiere build"
     staticPublishPath: .
