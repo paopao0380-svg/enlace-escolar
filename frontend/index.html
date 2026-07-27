@@ -110,6 +110,15 @@
   .rolebtn.tutor{background:#F6DFC3;color:#7A5024;border-color:#E7C398;}
   .rolebtn.docente{background:#DCEEDC;color:#2F6B45;border-color:#BFE0C2;}
   .rolebtn.representante{background:#FBEFC0;color:#8A6D14;border-color:#EDDB93;}
+  .rolecard{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;border-radius:20px;margin-bottom:16px;cursor:pointer;border:none;text-align:left;font-family:'Inter',sans-serif;position:relative;overflow:hidden;box-shadow:0 6px 14px rgba(0,0,0,0.18);}
+  .rolecard::before{content:"";position:absolute;top:0;left:0;right:0;height:52%;background:linear-gradient(180deg,rgba(255,255,255,0.38),rgba(255,255,255,0));pointer-events:none;}
+  .rolecard .icon-badge{width:56px;height:56px;min-width:56px;border-radius:50%;background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.45);display:flex;align-items:center;justify-content:center;font-size:27px;position:relative;z-index:1;}
+  .rolecard .texts{position:relative;z-index:1;}
+  .rolecard .rc-titulo{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:#fff;letter-spacing:0.03em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,0.15);}
+  .rolecard .rc-subtitulo{font-size:12px;color:rgba(255,255,255,0.94);margin-top:3px;line-height:1.4;}
+  .rolecard.tutor{background:linear-gradient(160deg,#6E72BC,#454A8C);}
+  .rolecard.docente{background:linear-gradient(160deg,#ACD696,#75AC5E);}
+  .rolecard.representante{background:linear-gradient(160deg,#8FDBCB,#54AA99);}
   .curso-fila{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
   .icon-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;color:var(--muted);}
   .icon-btn:hover{background:var(--line);}
@@ -254,7 +263,8 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHoAAACSCAYAAACK
 
 // ===================== conexión a la API real =====================
 // >>> CAMBIA ESTA LÍNEA por la URL real de tu servidor una vez desplegado en Render <<<
-const API_BASE = 'https://enlace-escolar-api.onrender.com';
+// Ejemplo: const API_BASE = 'https://enlace-escolar-api.onrender.com';
+const API_BASE = 'http://localhost:3000';
 
 async function api(method, path, body) {
   let res;
@@ -345,10 +355,27 @@ function renderAuth(root) {
         <div class="authtitle">Bienvenido</div>
         <div class="authsub">Ingresa con tu clave de acceso, o crea una cuenta nueva si es tu primera vez.</div>
         <hr class="divider">
-        <div class="section-title" style="margin-top:0;">Crear una cuenta nueva</div>
-        <button class="rolebtn tutor" onclick="mostrarRegistroTutor()">Tutor</button>
-        <button class="rolebtn docente" onclick="mostrarRegistroDocente()">Docente</button>
-        <button class="rolebtn representante" onclick="mostrarRegistroRepresentante()">Representante</button>
+        <button class="rolecard tutor" onclick="mostrarRegistroTutor()">
+          <div class="icon-badge">🎓</div>
+          <div class="texts">
+            <div class="rc-titulo">Tutor</div>
+            <div class="rc-subtitulo">Guía y seguimiento personalizado</div>
+          </div>
+        </button>
+        <button class="rolecard docente" onclick="mostrarRegistroDocente()">
+          <div class="icon-badge">👩‍🏫</div>
+          <div class="texts">
+            <div class="rc-titulo">Docente</div>
+            <div class="rc-subtitulo">Comunicación del aprendizaje en el aula</div>
+          </div>
+        </button>
+        <button class="rolecard representante" onclick="mostrarRegistroRepresentante()">
+          <div class="icon-badge">👨‍👧</div>
+          <div class="texts">
+            <div class="rc-titulo">Representante</div>
+            <div class="rc-subtitulo">Seguimiento del aprendizaje de mi hijo</div>
+          </div>
+        </button>
         <button class="linkbtn" style="display:block;margin:16px auto 0;" onclick="borrarTodo()">Borrar todos los datos registrados</button>
       </div>
     </div>`;
