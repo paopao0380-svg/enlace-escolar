@@ -100,6 +100,36 @@
   .authhero .appname{font-family:'Fraunces',serif;font-size:25px;font-weight:600;margin-top:10px;position:relative;}
   .authhero .appname .dot{color:var(--brass);}
   .authhero .institname{font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.82);margin-top:6px;position:relative;line-height:1.6;}
+
+  /* En un celular real, quitamos el marco decorativo (pensado para verse en computadora)
+     y usamos toda la pantalla disponible, con letras más grandes para mejor lectura. */
+  @media (max-width: 480px){
+    .stage{padding:0;border-radius:0;min-height:100vh;}
+    .phone{width:100%;height:100vh;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
+    .notch{display:none;}
+    .screen{flex:1;min-height:0;max-height:none;}
+    .tabbar{padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+
+    body{font-size:15px;}
+    .brand{font-size:19px;}
+    .section-title{font-size:17.5px;}
+    .stu-name{font-size:16px;}
+    .stu-meta{font-size:13.5px;}
+    .btn{font-size:14px;padding:9px 12px;}
+    .btn-block{font-size:15px;padding:13px;}
+    .msg-text{font-size:14.5px;}
+    .msg-stu{font-size:15px;}
+    .msg-tipo{font-size:12px;}
+    .who{font-size:12px;}
+    .tabbar button{font-size:12px;}
+    .authtitle{font-size:21px;}
+    .authsub{font-size:14px;}
+    .helptext{font-size:12.5px;}
+    .rolecard .rc-titulo{font-size:19px;}
+    .rolecard .rc-subtitulo{font-size:13px;}
+    input[type=text],select,textarea{font-size:16px;}
+    label{font-size:13px;}
+  }
   .authbody{padding:22px 22px 0;}
   .authtitle{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin-bottom:4px;color:var(--azul);}
   .authsub{font-size:12.5px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
