@@ -28,7 +28,6 @@
   body{margin:0;background:transparent;font-family:'Inter',sans-serif;color:var(--ink);}
   .stage{display:flex;justify-content:center;padding:24px 0;background:var(--paper);border-radius:16px;}
   .phone{width:390px;background:var(--paper);border:1px solid var(--line);border-radius:28px;overflow:hidden;position:relative;}
-  .notch{height:22px;background:var(--ink);border-radius:0 0 14px 14px;width:120px;margin:10px auto 0;}
   .topbar{padding:14px 18px 12px;background:linear-gradient(135deg,var(--azul),var(--azul-deep));}
   .brand{font-family:'Fraunces',serif;font-weight:600;font-size:18px;letter-spacing:-0.2px;display:flex;justify-content:space-between;align-items:center;color:#fff;}
   .brand .dot{color:var(--brass);}
@@ -106,7 +105,6 @@
   @media (max-width: 480px){
     .stage{padding:0;border-radius:0;min-height:100vh;}
     .phone{width:100%;height:100vh;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
-    .notch{display:none;}
     .screen{flex:1;min-height:0;max-height:none;}
     .tabbar{padding-bottom:calc(12px + env(safe-area-inset-bottom));}
 
@@ -159,7 +157,6 @@
 </head>
 <body>
 <div class="stage"><div class="phone">
-  <div class="notch"></div>
   <div id="root"></div>
 </div></div>
 
@@ -294,7 +291,7 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHoAAACSCAYAAACK
 // ===================== conexión a la API real =====================
 // >>> CAMBIA ESTA LÍNEA por la URL real de tu servidor una vez desplegado en Render <<<
 // Ejemplo: const API_BASE = 'https://enlace-escolar-api.onrender.com';
-const API_BASE = 'https://enlace-escolar-api.onrender.com';
+const API_BASE = 'http://localhost:3000';
 
 async function api(method, path, body) {
   let res;
