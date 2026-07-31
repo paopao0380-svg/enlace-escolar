@@ -35,7 +35,7 @@
   .crest{width:28px;height:33px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));}
   .institname{font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;color:rgba(255,255,255,0.8);margin-top:3px;}
   .who{font-size:11px;color:#fff;font-weight:500;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.32);padding:5px 9px;border-radius:20px;cursor:pointer;}
-  .screen{min-height:540px;max-height:640px;overflow-y:auto;padding:16px 18px 90px;position:relative;}
+  .screen{min-height:540px;max-height:640px;overflow-y:auto;padding:16px 18px 30px;position:relative;}
   .screen::-webkit-scrollbar{width:0;}
   .section-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:14px 0 10px;}
   .section-title:first-child{margin-top:0;}
@@ -49,8 +49,8 @@
   .btn{font-family:'Inter',sans-serif;font-size:12.5px;font-weight:500;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;}
   .btn-primary{background:var(--azul);color:#fff;border-color:var(--azul);}
   .btn-block{width:100%;padding:11px;text-align:center;font-size:13px;}
-  .fab{position:absolute;bottom:82px;right:18px;background:var(--brass);color:#fff;border:none;width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:5;}
-  .tabbar{position:absolute;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding:8px 6px 12px;}
+  .fab{position:absolute;bottom:18px;right:18px;background:var(--brass);color:#fff;border:none;width:48px;height:48px;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.15);z-index:5;}
+  .tabbar{background:var(--card);border-bottom:1px solid var(--line);display:flex;padding:8px 6px;}
   .tabbar button{flex:1;background:none;border:none;font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
   .tabbar button.active{color:var(--azul);font-weight:600;}
   .tabicon{width:18px;height:18px;border-radius:5px;border:1.6px solid currentColor;}
@@ -106,7 +106,7 @@
     .stage{padding:0;border-radius:0;min-height:100vh;}
     .phone{width:100%;height:100vh;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
     .screen{flex:1;min-height:0;max-height:none;}
-    .tabbar{padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+    
 
     body{font-size:15px;}
     .brand{font-size:19px;}
@@ -775,15 +775,15 @@ async function renderApp(root) {
       <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
       <button class="linkbtn" style="color:rgba(255,255,255,0.75);margin-top:8px;" onclick="borrarMisDatos()">Borrar mis datos</button>
     </div>
-    <div class="screen" id="screen"></div>
-    <button class="fab" id="fabBtn" style="display:none;">+</button>
     <div class="tabbar" id="tabbar">
       ${tabs.map(t => `
         <button class="${t.id === currentTab ? 'active' : ''}" onclick="cambiarTab('${t.id}')">
           <div class="tabicon"></div>${t.label}
           ${t.id === 'mensajes' && unread > 0 ? `<span class="badge">${unread}</span>` : ''}
         </button>`).join('')}
-    </div>`;
+    </div>
+    <div class="screen" id="screen"></div>
+    <button class="fab" id="fabBtn" style="display:none;">+</button>`;
 
   const fab = document.getElementById('fabBtn');
   if (me.rol === 'tutor' && currentTab === 'inicio') {
