@@ -92,22 +92,59 @@
   .switcher .card{cursor:pointer;}
   .toast{position:absolute;top:64px;left:14px;right:14px;background:var(--azul-deep);color:#fff;padding:10px 14px;border-radius:10px;font-size:12.5px;z-index:40;box-shadow:0 4px 10px rgba(0,0,0,0.2);opacity:0;transform:translateY(-8px);transition:all 0.25s ease;pointer-events:none;}
   .toast.show{opacity:1;transform:translateY(0);}
-  .authwrap{padding:0 0 24px;}
-  .authhero{background:linear-gradient(160deg,var(--azul) 0%,var(--azul-deep) 100%);padding:34px 22px 30px;text-align:center;color:#fff;border-radius:0 0 26px 26px;position:relative;overflow:hidden;}
-  .authhero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% -10%,rgba(255,255,255,0.12),transparent 55%);}
-  .authhero .crest-big{width:64px;height:76px;object-fit:contain;filter:drop-shadow(0 3px 6px rgba(0,0,0,0.35));position:relative;}
-  .authhero .appname{font-family:'Fraunces',serif;font-size:25px;font-weight:600;margin-top:10px;position:relative;}
-  .authhero .appname .dot{color:var(--brass);}
-  .authhero .institname{font-size:10.5px;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.82);margin-top:6px;position:relative;line-height:1.6;}
+  /* ========== Pantalla de bienvenida (estilo imagen original) ========== */
+  .authwrap{
+    padding:0 0 28px;
+    min-height:100%;
+    background-color:#F8F4EC;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' stroke='%23D4C8B0' stroke-width='1.15' opacity='0.32'%3E%3Cpath d='M18 28h20v15H18z'/%3E%3Cpath d='M20 28v-5h16v5'/%3E%3Ccircle cx='105' cy='30' r='11'/%3E%3Cpath d='M105 19v-6M105 41v6M94 30h-6M116 30h6'/%3E%3Cpath d='M22 85l9-14 9 14z'/%3E%3Cpath d='M78 82h24v20H78z'/%3E%3Cpath d='M82 82v-6h16v6'/%3E%3Cpath d='M14 115h16M22 115v-9'/%3E%3Cpath d='M108 108l7-12 7 12z'/%3E%3Cpath d='M50 50l4-7 4 7z'/%3E%3C/g%3E%3C/svg%3E");
+    background-size:150px 150px;
+  }
+  .authhero{
+    background:linear-gradient(165deg,#1a3a6e 0%,#122840 100%);
+    padding:28px 20px 26px;
+    text-align:center;
+    color:#fff;
+    border-radius:0 0 28px 28px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 4px 18px rgba(18,40,64,0.28);
+  }
+  .authhero::before{
+    content:"";
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 80% -20%,rgba(255,255,255,0.14),transparent 55%);
+  }
+  .authhero .crest-big{
+    width:58px;height:70px;
+    object-fit:contain;
+    filter:drop-shadow(0 3px 6px rgba(0,0,0,0.35));
+    position:relative;
+  }
+  .authhero .appname{
+    font-family:'Fraunces',serif;
+    font-size:26px;
+    font-weight:600;
+    margin-top:10px;
+    position:relative;
+    letter-spacing:-0.3px;
+  }
+  .authhero .appname .dot{color:#E8C547;}
+  .authhero .institname{
+    font-size:10px;
+    letter-spacing:0.07em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,0.85);
+    margin-top:6px;
+    position:relative;
+    line-height:1.55;
+  }
 
-  /* En un celular real, quitamos el marco decorativo (pensado para verse en computadora)
-     y usamos toda la pantalla disponible, con letras más grandes para mejor lectura. */
+  /* En un celular real, quitamos el marco decorativo y usamos toda la pantalla */
   @media (max-width: 480px){
     .stage{padding:0;border-radius:0;min-height:100vh;}
     .phone{width:100%;height:100vh;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
     .screen{flex:1;min-height:0;max-height:none;}
-    
-
     body{font-size:15px;}
     .brand{font-size:19px;}
     .section-title{font-size:17.5px;}
@@ -120,33 +157,110 @@
     .msg-tipo{font-size:12px;}
     .who{font-size:12px;}
     .tabbar button{font-size:12px;}
-    .authtitle{font-size:21px;}
-    .authsub{font-size:14px;}
+    .authtitle{font-size:24px;}
+    .authsub{font-size:14.5px;}
     .helptext{font-size:12.5px;}
-    .rolecard .rc-titulo{font-size:19px;}
-    .rolecard .rc-subtitulo{font-size:13px;}
+    .rolecard{padding:20px 16px;margin-bottom:15px;}
+    .rolecard .icon-badge{width:80px;height:80px;min-width:80px;}
+    .rolecard .rc-titulo{font-size:21px;}
+    .rolecard .rc-subtitulo{font-size:13.5px;}
     input[type=text],select,textarea{font-size:16px;}
     label{font-size:13px;}
   }
-  .authbody{padding:22px 22px 0;}
-  .authtitle{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin-bottom:4px;color:var(--azul);}
-  .authsub{font-size:12.5px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+
+  .authbody{padding:22px 18px 0;}
+  .authtitle{
+    font-family:'Fraunces',serif;
+    font-size:22px;
+    font-weight:600;
+    margin-bottom:6px;
+    color:#1E3A5C;
+    text-align:center;
+  }
+  .authsub{
+    font-size:13px;
+    color:#5C5860;
+    margin-bottom:22px;
+    line-height:1.55;
+    text-align:center;
+    max-width:300px;
+    margin-left:auto;
+    margin-right:auto;
+  }
   .linkbtn{background:none;border:none;color:var(--azul);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;margin-top:14px;}
-  .divider{border:none;border-top:1px solid var(--line);margin:18px 0;}
+  .divider{border:none;border-top:1px solid #E5DFD6;margin:16px 0 20px;}
   .spinner{text-align:center;color:var(--muted);font-size:12.5px;padding:60px 10px;}
   .rolebtn{display:flex;align-items:center;justify-content:center;width:100%;text-align:center;padding:13px;border-radius:12px;font-weight:600;font-size:13.5px;cursor:pointer;border:1.5px solid transparent;margin-bottom:10px;font-family:'Inter',sans-serif;}
   .rolebtn.tutor{background:#F6DFC3;color:#7A5024;border-color:#E7C398;}
   .rolebtn.docente{background:#DCEEDC;color:#2F6B45;border-color:#BFE0C2;}
   .rolebtn.representante{background:#FBEFC0;color:#8A6D14;border-color:#EDDB93;}
-  .rolecard{display:flex;align-items:center;gap:14px;width:100%;padding:16px 18px;border-radius:20px;margin-bottom:16px;cursor:pointer;border:none;text-align:left;font-family:'Inter',sans-serif;position:relative;overflow:hidden;box-shadow:0 6px 14px rgba(0,0,0,0.18);}
-  .rolecard::before{content:"";position:absolute;top:0;left:0;right:0;height:52%;background:linear-gradient(180deg,rgba(255,255,255,0.38),rgba(255,255,255,0));pointer-events:none;}
-  .rolecard .icon-badge{width:56px;height:56px;min-width:56px;border-radius:50%;background:rgba(255,255,255,0.28);border:2px solid rgba(255,255,255,0.45);display:flex;align-items:center;justify-content:center;font-size:27px;position:relative;z-index:1;}
-  .rolecard .texts{position:relative;z-index:1;}
-  .rolecard .rc-titulo{font-family:'Fraunces',serif;font-weight:700;font-size:18px;color:#fff;letter-spacing:0.03em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,0.15);}
-  .rolecard .rc-subtitulo{font-size:12px;color:rgba(255,255,255,0.94);margin-top:3px;line-height:1.4;}
-  .rolecard.tutor{background:linear-gradient(160deg,#6E72BC,#454A8C);}
-  .rolecard.docente{background:linear-gradient(160deg,#ACD696,#75AC5E);}
-  .rolecard.representante{background:linear-gradient(160deg,#8FDBCB,#54AA99);}
+
+  /* Botones de rol – estilo imagen */
+  .rolecard{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    width:100%;
+    padding:16px 16px 16px 14px;
+    border-radius:22px;
+    margin-bottom:13px;
+    cursor:pointer;
+    border:none;
+    text-align:left;
+    font-family:'Inter',sans-serif;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 8px 22px rgba(0,0,0,0.17);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .rolecard:active{
+    transform:scale(0.975);
+    box-shadow:0 4px 12px rgba(0,0,0,0.14);
+  }
+  .rolecard::before{
+    content:"";
+    position:absolute;
+    top:0;left:0;right:0;
+    height:48%;
+    background:linear-gradient(180deg,rgba(255,255,255,0.30),rgba(255,255,255,0));
+    pointer-events:none;
+  }
+  .rolecard .icon-badge{
+    width:74px;
+    height:74px;
+    min-width:74px;
+    border-radius:50%;
+    background:rgba(255,255,255,0.22);
+    border:2.5px solid rgba(255,255,255,0.42);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    z-index:1;
+    box-shadow:inset 0 2px 8px rgba(255,255,255,0.22);
+  }
+  .rolecard .icon-badge svg{width:44px;height:44px;}
+  .rolecard .texts{position:relative;z-index:1;flex:1;}
+  .rolecard .rc-titulo{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:19px;
+    color:#fff;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    text-shadow:0 1px 3px rgba(0,0,0,0.22);
+  }
+  .rolecard .rc-subtitulo{
+    font-size:12.5px;
+    color:rgba(255,255,255,0.93);
+    margin-top:4px;
+    line-height:1.4;
+    font-weight:500;
+  }
+  .rolecard.tutor{background:linear-gradient(155deg,#3B5F9E 0%,#2A4578 50%,#1E355F 100%);}
+  .rolecard.docente{background:linear-gradient(155deg,#6EBF7A 0%,#4FA05C 50%,#3D8A4A 100%);}
+  .rolecard.representante{background:linear-gradient(155deg,#4ECFBF 0%,#2FB3A3 50%,#229B8C 100%);}
+
   .curso-fila{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
   .icon-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;color:var(--muted);}
   .icon-btn:hover{background:var(--line);}
@@ -380,30 +494,55 @@ function renderAuth(root) {
       </div>
       <div class="authbody">
         <div class="authtitle">Bienvenido</div>
-        <div class="authsub">Ingresa con tu clave de acceso, o crea una cuenta nueva si es tu primera vez.</div>
-        <hr class="divider">
+        <div class="authsub">Ingresa con tu clave de acceso, o crea una nueva si es tu primera vez.</div>
+
         <button class="rolecard tutor" onclick="mostrarRegistroTutor()">
-          <div class="icon-badge">🎓</div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="28" cy="18" r="9" fill="#fff" opacity="0.95"/>
+              <path d="M12 48c0-10 7-16 16-16s16 6 16 16" fill="#fff" opacity="0.95"/>
+              <circle cx="44" cy="26" r="7" fill="#fff" opacity="0.85"/>
+              <path d="M34 50c0-7 5-12 12-12s10 5 10 12" fill="#fff" opacity="0.85"/>
+            </svg>
+          </div>
           <div class="texts">
             <div class="rc-titulo">Tutor</div>
             <div class="rc-subtitulo">Guía y seguimiento personalizado</div>
           </div>
         </button>
+
         <button class="rolecard docente" onclick="mostrarRegistroDocente()">
-          <div class="icon-badge">👩‍🏫</div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="14" width="36" height="28" rx="3" fill="#fff" opacity="0.9"/>
+              <rect x="14" y="18" width="28" height="18" rx="1.5" fill="#4FA05C" opacity="0.35"/>
+              <circle cx="46" cy="42" r="8" fill="#fff" opacity="0.95"/>
+              <path d="M36 58c0-7 4.5-12 12-12s10 5 10 12" fill="#fff" opacity="0.95"/>
+              <path d="M18 48h8M22 48v6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+            </svg>
+          </div>
           <div class="texts">
             <div class="rc-titulo">Docente</div>
             <div class="rc-subtitulo">Comunicación del aprendizaje en el aula</div>
           </div>
         </button>
+
         <button class="rolecard representante" onclick="mostrarRegistroRepresentante()">
-          <div class="icon-badge">👨‍👧</div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 34 L32 16 L52 34 V52 H12 Z" fill="#fff" opacity="0.9"/>
+              <rect x="26" y="38" width="12" height="14" rx="1.5" fill="#2FB3A3" opacity="0.5"/>
+              <circle cx="22" cy="28" r="5.5" fill="#fff" opacity="0.95"/>
+              <circle cx="42" cy="26" r="4.5" fill="#fff" opacity="0.85"/>
+            </svg>
+          </div>
           <div class="texts">
             <div class="rc-titulo">Representante</div>
             <div class="rc-subtitulo">Seguimiento del aprendizaje de mi hijo</div>
           </div>
         </button>
-        <button class="linkbtn" style="display:block;margin:16px auto 0;" onclick="borrarTodo()">Borrar todos los datos registrados</button>
+
+        <button class="linkbtn" style="display:block;margin:18px auto 8px;text-align:center;width:100%;opacity:0.7;" onclick="borrarTodo()">Borrar todos los datos registrados</button>
       </div>
     </div>`;
 }
