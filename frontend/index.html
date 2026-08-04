@@ -92,54 +92,53 @@
   .switcher .card{cursor:pointer;}
   .toast{position:absolute;top:64px;left:14px;right:14px;background:var(--azul-deep);color:#fff;padding:10px 14px;border-radius:10px;font-size:12.5px;z-index:40;box-shadow:0 4px 10px rgba(0,0,0,0.2);opacity:0;transform:translateY(-8px);transition:all 0.25s ease;pointer-events:none;}
   .toast.show{opacity:1;transform:translateY(0);}
-  /* ========== Pantalla de bienvenida (estilo imagen original) ========== */
+  /* ========== Pantalla de bienvenida (diseño final) ========== */
   .authwrap{
     padding:0 0 32px;
     min-height:100%;
-    background-color:#F5F0E6;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%23C9BFA8' stroke-width='1.2' opacity='0.28'%3E%3Cpath d='M16 24h22v16H16z'/%3E%3Cpath d='M18 24v-5h18v5'/%3E%3Ccircle cx='120' cy='32' r='12'/%3E%3Cpath d='M120 20v-7M120 44v7M108 32h-7M132 32h7'/%3E%3Cpath d='M24 95l10-16 10 16z'/%3E%3Cpath d='M90 90h26v22H90z'/%3E%3Cpath d='M94 90v-7h18v7'/%3E%3Cpath d='M12 130h18M21 130v-10'/%3E%3Cpath d='M125 120l8-14 8 14z'/%3E%3Cpath d='M55 55l5-8 5 8z'/%3E%3Cpath d='M70 20h14M77 20v10'/%3E%3Ccircle cx='40' cy='60' r='6'/%3E%3Cpath d='M140 70h12v9h-12z'/%3E%3C/g%3E%3C/svg%3E");
-    background-size:160px 160px;
+    background-color:#F3EBD8;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='none' stroke='%23C9B896' stroke-width='1.3' opacity='0.35'%3E%3Cpath d='M14 22h20v14H14z'/%3E%3Cpath d='M16 22v-4h16v4'/%3E%3Ccircle cx='110' cy='28' r='11'/%3E%3Cpath d='M110 17v-6M110 39v6M99 28h-6M121 28h6'/%3E%3Cpath d='M20 88l9-14 9 14z'/%3E%3Cpath d='M85 85h24v20H85z'/%3E%3Cpath d='M89 85v-6h16v6'/%3E%3Cpath d='M12 122h16M20 122v-9'/%3E%3Cpath d='M118 112l7-12 7 12z'/%3E%3Cpath d='M50 50l4-7 4 7z'/%3E%3Cpath d='M65 18h12M71 18v9'/%3E%3C/g%3E%3C/svg%3E");
+    background-size:150px 150px;
   }
   .authhero{
-    background:linear-gradient(180deg,#1B3A6B 0%,#152F56 100%);
-    padding:22px 18px 20px;
+    background:linear-gradient(180deg,#1A3358 0%,#142844 100%);
+    padding:20px 16px 18px;
     text-align:center;
     color:#fff;
-    border-radius:0 0 0 0;
     position:relative;
     overflow:hidden;
   }
   .authhero::before{
     content:"";
     position:absolute;inset:0;
-    background:radial-gradient(circle at 70% -30%,rgba(255,255,255,0.10),transparent 50%);
+    background:radial-gradient(circle at 70% -20%,rgba(255,255,255,0.08),transparent 50%);
   }
   .authhero .crest-big{
-    width:52px;height:62px;
+    width:56px;height:66px;
     object-fit:contain;
     filter:drop-shadow(0 2px 5px rgba(0,0,0,0.35));
     position:relative;
   }
-  .authhero .institname{
-    font-size:9.5px;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-    color:rgba(255,255,255,0.88);
-    margin-top:8px;
-    position:relative;
-    line-height:1.5;
-    font-weight:500;
-  }
   .authhero .appname{
     font-family:'Fraunces',serif;
-    font-size:28px;
+    font-size:27px;
     font-weight:600;
-    margin-top:6px;
+    margin-top:8px;
     position:relative;
     letter-spacing:-0.2px;
-    color:#F0D060;
+    color:#E8C547;
   }
-  .authhero .appname .dot{color:#F0D060;}
+  .authhero .appname .dot{color:#E8C547;}
+  .authhero .institname{
+    font-size:10px;
+    letter-spacing:0.04em;
+    color:rgba(255,255,255,0.88);
+    margin-top:4px;
+    position:relative;
+    line-height:1.45;
+    font-weight:500;
+    text-transform:none;
+  }
 
   @media (max-width: 480px){
     .stage{padding:0;border-radius:0;min-height:100vh;}
@@ -157,30 +156,30 @@
     .msg-tipo{font-size:12px;}
     .who{font-size:12px;}
     .tabbar button{font-size:12px;}
-    .authtitle{font-size:24px;}
+    .authtitle{font-size:25px;}
     .authsub{font-size:14.5px;}
     .helptext{font-size:12.5px;}
-    .rolecard{min-height:96px;padding:14px 16px;}
-    .rolecard .illus{width:88px;min-width:88px;height:72px;}
+    .rolecard{min-height:100px;padding:14px 14px;}
+    .rolecard .illus{width:92px;min-width:92px;height:78px;}
     .rolecard .rc-titulo{font-size:20px;}
     .rolecard .rc-subtitulo{font-size:13px;}
     input[type=text],select,textarea{font-size:16px;}
     label{font-size:13px;}
   }
 
-  .authbody{padding:24px 16px 0;}
+  .authbody{padding:22px 16px 0;}
   .authtitle{
     font-family:'Fraunces',serif;
     font-size:24px;
     font-weight:600;
     margin-bottom:8px;
-    color:#1E3A5C;
+    color:#1A2744;
     text-align:center;
   }
   .authsub{
     font-size:13.5px;
-    color:#5A564E;
-    margin-bottom:24px;
+    color:#4A453C;
+    margin-bottom:22px;
     line-height:1.55;
     text-align:center;
     max-width:300px;
@@ -195,15 +194,15 @@
   .rolebtn.docente{background:#DCEEDC;color:#2F6B45;border-color:#BFE0C2;}
   .rolebtn.representante{background:#FBEFC0;color:#8A6D14;border-color:#EDDB93;}
 
-  /* Botones de rol – estilo imagen original */
+  /* Botones estilo imagen */
   .rolecard{
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:14px;
     width:100%;
-    min-height:90px;
+    min-height:92px;
     padding:12px 16px 12px 12px;
-    border-radius:18px;
+    border-radius:20px;
     margin-bottom:14px;
     cursor:pointer;
     border:none;
@@ -211,7 +210,7 @@
     font-family:'Inter',sans-serif;
     position:relative;
     overflow:hidden;
-    box-shadow:0 6px 16px rgba(0,0,0,0.14);
+    box-shadow:0 6px 16px rgba(0,0,0,0.15);
     transition:transform 0.15s ease, box-shadow 0.15s ease;
   }
   .rolecard:active{
@@ -219,9 +218,9 @@
     box-shadow:0 3px 10px rgba(0,0,0,0.12);
   }
   .rolecard .illus{
-    width:82px;
-    min-width:82px;
-    height:70px;
+    width:88px;
+    min-width:88px;
+    height:76px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -230,33 +229,27 @@
     flex-shrink:0;
   }
   .rolecard .illus svg{width:100%;height:100%;}
-  .rolecard .texts{position:relative;z-index:1;flex:1;padding-right:4px;}
+  .rolecard .texts{position:relative;z-index:1;flex:1;}
   .rolecard .rc-titulo{
     font-family:'Fraunces',serif;
     font-weight:700;
-    font-size:18px;
+    font-size:19px;
     color:#fff;
-    letter-spacing:0.06em;
+    letter-spacing:0.05em;
     text-transform:uppercase;
     text-shadow:0 1px 2px rgba(0,0,0,0.2);
-    line-height:1.2;
+    line-height:1.15;
   }
   .rolecard .rc-subtitulo{
-    font-size:12px;
-    color:rgba(255,255,255,0.92);
+    font-size:12.5px;
+    color:rgba(255,255,255,0.93);
     margin-top:5px;
     line-height:1.35;
     font-weight:500;
   }
-  .rolecard.tutor{
-    background:linear-gradient(135deg,#2B4F8C 0%,#1E3A6B 100%);
-  }
-  .rolecard.docente{
-    background:linear-gradient(135deg,#6BB86E 0%,#4A9A52 100%);
-  }
-  .rolecard.representante{
-    background:linear-gradient(135deg,#4DBDB0 0%,#2FA89A 100%);
-  }
+  .rolecard.tutor{background:linear-gradient(135deg,#2B5AA0 0%,#1E4478 100%);}
+  .rolecard.docente{background:linear-gradient(135deg,#4FA85A 0%,#3D8B48 100%);}
+  .rolecard.representante{background:linear-gradient(135deg,#3BB8AA 0%,#2A9E92 100%);}
 
   .curso-fila{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
   .icon-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;color:var(--muted);}
@@ -486,8 +479,8 @@ function renderAuth(root) {
     <div class="authwrap">
       <div class="authhero">
         <img class="crest-big" src="${LOGO_SRC}" alt="Escudo Unidad Educativa Dr. José María Velasco Ibarra">
-        <div class="institname">Unidad Educativa<br>Dr. José María Velasco Ibarra</div>
-        <div class="appname">Enlace Escolar</div>
+        <div class="appname">Enlace<span class="dot">·</span>Escolar</div>
+        <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
       </div>
       <div class="authbody">
         <div class="authtitle">Bienvenido</div>
@@ -495,18 +488,18 @@ function renderAuth(root) {
 
         <button class="rolecard tutor" onclick="mostrarRegistroTutor()">
           <div class="illus">
-            <svg viewBox="0 0 90 76" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- Adult -->
-              <circle cx="32" cy="20" r="11" fill="#F5D0A9"/>
-              <ellipse cx="32" cy="16" rx="12" ry="7" fill="#3D2B1F"/>
-              <path d="M18 52c0-11 6.5-18 14-18s14 7 14 18v6H18v-6z" fill="#5B8DEF"/>
-              <path d="M22 40h20v8c0 2-2 4-4 4H26c-2 0-4-2-4-4v-8z" fill="#3B6FD4"/>
+            <svg viewBox="0 0 96 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Woman tutor -->
+              <circle cx="30" cy="22" r="12" fill="#F5CBA7"/>
+              <ellipse cx="30" cy="15" rx="13" ry="8" fill="#2C1810"/>
+              <path d="M16 54c0-12 6-19 14-19s14 7 14 19v4H16v-4z" fill="#E74C3C"/>
+              <path d="M20 38h20v8c0 2-2 3-4 3H24c-2 0-4-1-4-3v-8z" fill="#C0392B"/>
               <!-- Child -->
-              <circle cx="60" cy="28" r="9" fill="#F5D0A9"/>
-              <ellipse cx="60" cy="24" rx="10" ry="6" fill="#5C4033"/>
-              <path d="M48 56c0-9 5.5-14 12-14s12 5 12 14v4H48v-4z" fill="#7EB8F7"/>
-              <!-- Arm connecting -->
-              <path d="M42 42c4 2 8 3 12 2" stroke="#F5D0A9" stroke-width="3.5" stroke-linecap="round"/>
+              <circle cx="60" cy="30" r="10" fill="#F5CBA7"/>
+              <ellipse cx="60" cy="24" rx="11" ry="7" fill="#5C4033"/>
+              <path d="M48 58c0-10 5.5-15 12-15s12 5 12 15v2H48v-2z" fill="#E67E22"/>
+              <!-- Holding hands -->
+              <path d="M42 44c5 3 10 3 14 1" stroke="#F5CBA7" stroke-width="3.5" stroke-linecap="round"/>
             </svg>
           </div>
           <div class="texts">
@@ -517,22 +510,26 @@ function renderAuth(root) {
 
         <button class="rolecard docente" onclick="mostrarRegistroDocente()">
           <div class="illus">
-            <svg viewBox="0 0 90 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 96 80" fill="none" xmlns="http://www.w3.org/2000/svg">
               <!-- Blackboard -->
-              <rect x="8" y="10" width="40" height="30" rx="3" fill="#2D5A3D"/>
-              <rect x="11" y="13" width="34" height="24" rx="1.5" fill="#3D7A52"/>
-              <path d="M16 22h12M16 28h18M16 34h10" stroke="#A8D5B5" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>
+              <rect x="6" y="6" width="40" height="30" rx="3" fill="#1E3A2F"/>
+              <rect x="9" y="9" width="34" height="24" rx="1.5" fill="#2D5A42"/>
+              <path d="M14 17h14M14 23h20M14 29h10" stroke="#8FCB9B" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
               <!-- Teacher -->
-              <circle cx="62" cy="26" r="10" fill="#F5D0A9"/>
-              <ellipse cx="62" cy="22" rx="11" ry="6.5" fill="#2C1810"/>
-              <path d="M48 54c0-10 6-16 14-16s14 6 14 16v5H48v-5z" fill="#4A90D9"/>
-              <!-- Book in hand -->
-              <rect x="42" y="40" width="12" height="9" rx="1" fill="#E8C547"/>
-              <path d="M48 40v9" stroke="#C4A030" stroke-width="1"/>
-              <!-- Students heads -->
-              <circle cx="22" cy="58" r="5.5" fill="#F5D0A9"/>
-              <circle cx="38" cy="60" r="5" fill="#F5D0A9"/>
-              <circle cx="54" cy="59" r="5.5" fill="#F5D0A9"/>
+              <circle cx="64" cy="20" r="11" fill="#F5CBA7"/>
+              <ellipse cx="64" cy="14" rx="12" ry="7" fill="#1A1A1A"/>
+              <path d="M50 52c0-11 6-17 14-17s14 6 14 17v2H50v-2z" fill="#FFFFFF"/>
+              <path d="M54 36h20v7c0 1.5-1.5 2.5-3 2.5H57c-1.5 0-3-1-3-2.5V36z" fill="#2C3E50"/>
+              <path d="M50 38 L40 26" stroke="#F5CBA7" stroke-width="3.2" stroke-linecap="round"/>
+              <!-- Students -->
+              <circle cx="18" cy="56" r="5.5" fill="#F5CBA7"/>
+              <circle cx="32" cy="58" r="5" fill="#F5CBA7"/>
+              <circle cx="46" cy="57" r="5.5" fill="#F5CBA7"/>
+              <circle cx="60" cy="58" r="5" fill="#F5CBA7"/>
+              <path d="M13 66c0-4.5 2.5-7 5-7s5 2.5 5 7" fill="#3498DB"/>
+              <path d="M27 67c0-4.5 2.5-7 5-7s5 2.5 5 7" fill="#E74C3C"/>
+              <path d="M41 66c0-4.5 2.5-7 5-7s5 2.5 5 7" fill="#9B59B6"/>
+              <path d="M55 67c0-4.5 2.5-7 5-7s5 2.5 5 7" fill="#E67E22"/>
             </svg>
           </div>
           <div class="texts">
@@ -543,22 +540,23 @@ function renderAuth(root) {
 
         <button class="rolecard representante" onclick="mostrarRegistroRepresentante()">
           <div class="illus">
-            <svg viewBox="0 0 90 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 96 80" fill="none" xmlns="http://www.w3.org/2000/svg">
               <!-- House -->
-              <path d="M48 18 L72 36 L72 58 L48 58 L48 18 Z" fill="#F5E6C8"/>
-              <path d="M48 18 L60 8 L72 18" fill="#E07A5F"/>
-              <rect x="56" y="40" width="10" height="18" rx="1" fill="#5B8DEF"/>
-              <rect x="52" y="28" width="7" height="7" rx="1" fill="#7EC8E3"/>
-              <!-- Adult -->
-              <circle cx="24" cy="28" r="10" fill="#F5D0A9"/>
-              <ellipse cx="24" cy="24" rx="11" ry="6.5" fill="#3D2B1F"/>
-              <path d="M10 56c0-10 6-16 14-16s14 6 14 16v4H10v-4z" fill="#3D5A80"/>
+              <path d="M56 20 L80 38 L80 60 L56 60 Z" fill="#FDEBD0"/>
+              <path d="M56 20 L68 8 L80 20" fill="#E74C3C"/>
+              <rect x="64" y="40" width="10" height="20" rx="1" fill="#3498DB"/>
+              <rect x="60" y="28" width="8" height="8" rx="1" fill="#5DADE2"/>
+              <!-- Father -->
+              <circle cx="26" cy="22" r="11" fill="#F5CBA7"/>
+              <ellipse cx="26" cy="16" rx="12" ry="7" fill="#2C1810"/>
+              <path d="M12 54c0-11 6-17 14-17s14 6 14 17v2H12v-2z" fill="#2980B9"/>
+              <path d="M16 40h20v7c0 1.5-1.5 2.5-3 2.5H19c-1.5 0-3-1-3-2.5V40z" fill="#1A5276"/>
               <!-- Child -->
-              <circle cx="42" cy="38" r="7.5" fill="#F5D0A9"/>
-              <ellipse cx="42" cy="34.5" rx="8" ry="5" fill="#C4A35A"/>
-              <path d="M32 58c0-7 4.5-11 10-11s10 4 10 11v2H32v-2z" fill="#E07A5F"/>
-              <!-- Hands connected -->
-              <path d="M32 48c3 1 6 1 9 0" stroke="#F5D0A9" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="46" cy="34" r="9" fill="#F5CBA7"/>
+              <ellipse cx="46" cy="29" rx="10" ry="5.5" fill="#5C4033"/>
+              <path d="M36 58c0-8 4.5-12 10-12s10 4 10 12" fill="#E74C3C"/>
+              <!-- Hands -->
+              <path d="M36 46c3.5 2 8 2 11 0.5" stroke="#F5CBA7" stroke-width="3.2" stroke-linecap="round"/>
             </svg>
           </div>
           <div class="texts">
