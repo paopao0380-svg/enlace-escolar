@@ -421,25 +421,59 @@ let DB = { usuarios: [], cursos: [], estudiantes: [], mensajes: [], docenteCurso
 let session = null; // {usuarioId}
 let ready = false;
 
+// Almacenamiento local (funciona en PC y celular sin servidor)
+const STORE_PREFIX = 'enlace_escolar_';
+function storeKey(key){ return STORE_PREFIX + key; }
+
 async function safeGet(key, shared){
-  try{ const r = await window.storage.get(key, shared); return r ? r.value : null; }
-  catch(e){ return null; }
+  try{
+    if(window.storage && typeof window.storage.get === 'function'){
+      const r = await window.storage.get(key, shared);
+      return r ? r.value : null;
+    }
+    return localStorage.getItem(storeKey(key));
+  }catch(e){ return null; }
 }
 async function saveCol(name){
-  try{ await window.storage.set(name, JSON.stringify(DB[name]), true); }
-  catch(e){ console.error('storage error', e); showToast('No se pudo guardar. Intenta de nuevo.'); }
+  try{
+    const val = JSON.stringify(DB[name] || []);
+    if(window.storage && typeof window.storage.set === 'function'){
+      await window.storage.set(name, val, true);
+    } else {
+      localStorage.setItem(storeKey(name), val);
+    }
+  }catch(e){
+    console.error('storage error', e);
+    try{ localStorage.setItem(storeKey(name), JSON.stringify(DB[name] || [])); }
+    catch(e2){ showToast('No se pudo guardar. Intenta de nuevo.'); }
+  }
 }
 async function loadAll(){
   for(const c of COLS){
     const v = await safeGet(c, true);
-    DB[c] = v ? JSON.parse(v) : [];
+    try{ DB[c] = v ? JSON.parse(v) : []; }
+    catch(e){ DB[c] = []; }
   }
   ready = true;
   const s = await safeGet('session', false);
-  session = s ? JSON.parse(s) : null;
+  try{ session = s ? JSON.parse(s) : null; }
+  catch(e){ session = null; }
 }
 async function saveSession(){
-  try{ await window.storage.set('session', JSON.stringify(session), false); }catch(e){}
+  try{
+    const val = JSON.stringify(session);
+    if(window.storage && typeof window.storage.set === 'function'){
+      await window.storage.set('session', val, false);
+    } else {
+      if(session) localStorage.setItem(storeKey('session'), val);
+      else localStorage.removeItem(storeKey('session'));
+    }
+  }catch(e){
+    try{
+      if(session) localStorage.setItem(storeKey('session'), JSON.stringify(session));
+      else localStorage.removeItem(storeKey('session'));
+    }catch(e2){}
+  }
 }
 
 // ===================== utilidades =====================
@@ -593,12 +627,12 @@ async function crearCuentaTutor(){
   document.getElementById('ovClaveCurso').classList.remove('hidden');
 }
 
-function confirmarClaveCurso(){
+async function confirmarClaveCurso(){
   const ingresada = (document.getElementById('claveCursoInput').value||'').trim().toUpperCase();
   if(!claveCursoContext){ closeOv('ovClaveCurso'); return; }
   if(ingresada !== claveCursoContext.claveCorrecta){ showToast('La clave no coincide. Revisa e intenta de nuevo.'); return; }
   session = { usuarioId: claveCursoContext.usuarioId };
-  saveSession();
+  await saveSession();
   closeOv('ovClaveCurso');
   enPantallaRegistro = false;
   currentTab = 'inicio';
@@ -685,11 +719,11 @@ async function crearCuentaDocente(){
   window._claveNuevaUsuarioId = id;
 }
 
-function continuarClaveNueva(){
+async function continuarClaveNueva(){
   closeOv('ovClaveNueva');
   if(window._claveNuevaUsuarioId){
     session = { usuarioId: window._claveNuevaUsuarioId };
-    saveSession();
+    await saveSession();
     window._claveNuevaUsuarioId = null;
     enPantallaRegistro = false;
     currentTab = 'inicio';
@@ -785,9 +819,15 @@ async function confirmarBorrarTodo(){
   closeOv('ovBorrarTodo');
   for(const c of COLS){
     DB[c] = [];
-    try{ await window.storage.delete(c, true); }catch(e){}
+    try{
+      if(window.storage && window.storage.delete) await window.storage.delete(c, true);
+      else localStorage.removeItem(storeKey(c));
+    }catch(e){ localStorage.removeItem(storeKey(c)); }
   }
-  try{ await window.storage.delete('session', false); }catch(e){}
+  try{
+    if(window.storage && window.storage.delete) await window.storage.delete('session', false);
+    else localStorage.removeItem(storeKey('session'));
+  }catch(e){ localStorage.removeItem(storeKey('session')); }
   session = null;
   docenteCursoActivo = null;
   showToast('Todos los datos fueron borrados. La app quedó lista para empezar de cero.');
