@@ -427,8 +427,12 @@ const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHoAAACSCAYAAACK
 
 // ===================== conexión a la API real =====================
 // >>> CAMBIA ESTA LÍNEA por la URL real de tu servidor una vez desplegado en Render <<<
-// Ejemplo: const API_BASE = 'https://enlace-escolar-api.onrender.com';
-const API_BASE = 'http://localhost:3000';
+// API: en local usa localhost; en producción (Render u otro host) usa el mismo origen.
+// Si tu backend tiene OTRA URL distinta al frontend, ponla aquí, por ejemplo:
+// const API_BASE = 'https://TU-BACKEND.onrender.com';
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:3000'
+  : '';
 
 async function api(method, path, body) {
   let res;
