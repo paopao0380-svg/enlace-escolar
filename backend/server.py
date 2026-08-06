@@ -508,7 +508,44 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {'error': 'Ruta no encontrada.'})
 
     def do_GET(self):
-        self._dispatch('GET')
+        path = urlparse(self.path).path
+        # API routes
+        if path.startswith('/api/'):
+            self._dispatch('GET')
+            return
+        # Static frontend files (same service on Render)
+        self._serve_static(path)
+
+    def _serve_static(self, path):
+        import mimetypes
+        base = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'frontend')
+        if not os.path.isdir(base):
+            base = os.path.dirname(os.path.abspath(__file__))
+        if path in ('', '/'):
+            path = '/index.html'
+        # security: no path traversal
+        rel = path.lstrip('/').replace('..', '')
+        fpath = os.path.join(base, rel)
+        if not os.path.isfile(fpath):
+            # try deploy folder layout
+            alt = os.path.join(os.path.dirname(os.path.abspath(__file__)), rel)
+            if os.path.isfile(alt):
+                fpath = alt
+            else:
+                self._send(404, {'error': 'Archivo no encontrado.', 'path': path})
+                return
+        ctype = mimetypes.guess_type(fpath)[0] or 'application/octet-stream'
+        try:
+            with open(fpath, 'rb') as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', ctype)
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-cache')
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self._send(500, {'error': str(e)})
 
     def do_POST(self):
         self._dispatch('POST')
