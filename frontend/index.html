@@ -507,6 +507,270 @@ function renderAuth(root) {
 }
 
 
+
+
+// ===================== Pantallas de registro / login (modo demo local) =====================
+let modoTutor = 'login';
+let modoDocente = 'login';
+let modoRepresentante = 'login';
+
+function mostrarRegistroTutor(){
+  enPantallaRegistro = true;
+  modoTutor = 'login';
+  renderPantallaTutor();
+}
+function cambiarModoTutor(m){ modoTutor = m; renderPantallaTutor(); }
+
+function renderPantallaTutor(){
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="authwrap">
+      <div class="topbar" style="border-radius:0 0 26px 26px;">
+        <div class="brand"><div class="brand-left"><img class="crest" src="${LOGO_SRC}" alt="Escudo"><span>Enlace<span class="dot">·</span>Escolar</span></div></div>
+      </div>
+      <div class="authbody">
+        <div class="authtitle">Tutor</div>
+        <div class="rolebar" style="margin:6px 0 16px;">
+          <button class="${modoTutor==='login'?'sel':''}" onclick="cambiarModoTutor('login')">Ya tengo curso</button>
+          <button class="${modoTutor==='nuevo'?'sel':''}" onclick="cambiarModoTutor('nuevo')">Crear curso nuevo</button>
+        </div>
+        <div id="tutorFormArea"></div>
+        <div class="sheet-actions">
+          <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
+          <button class="btn btn-primary" style="flex:1" onclick="${modoTutor==='login'?'iniciarSesionTutor()':'crearCuentaTutor()'}">${modoTutor==='login'?'Entrar':'Registrar curso'}</button>
+        </div>
+      </div>
+    </div>`;
+  const area = document.getElementById('tutorFormArea');
+  if(modoTutor==='login'){
+    area.innerHTML = `
+      <div class="authsub">Ingresa la clave de tu curso para entrar.</div>
+      <label>Clave del curso</label>
+      <input type="text" id="tutClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
+  } else {
+    area.innerHTML = `
+      <div class="authsub">Crea tu curso. Se generará una clave para ti y para tus docentes.</div>
+      <label>Tu nombre</label>
+      <input type="text" id="tutNombre" placeholder="Nombre y apellido">
+      <label>Nombre del curso</label>
+      <input type="text" id="tutCurso" placeholder='Ej: 1ro de DS "A"'>`;
+  }
+}
+
+async function iniciarSesionTutor(){
+  const clave = (document.getElementById('tutClaveLogin').value||'').trim().toUpperCase();
+  if(!clave){ showToast('Ingresa la clave del curso.'); return; }
+  const c = DB.cursos.find(x=>x.claveCurso===clave);
+  if(!c){ showToast('No existe un curso con esa clave.'); return; }
+  const u = DB.usuarios.find(x=>x.id===c.tutorId && x.rol==='tutor');
+  if(!u){ showToast('Tutor no encontrado.'); return; }
+  session = { usuarioId: u.id };
+  await saveSession();
+  enPantallaRegistro = false;
+  currentTab = 'inicio';
+  showToast('Bienvenido, '+u.nombre.split(' ')[0]);
+  render();
+}
+
+async function crearCuentaTutor(){
+  const nombre = (document.getElementById('tutNombre').value||'').trim();
+  const cursoNombre = (document.getElementById('tutCurso').value||'').trim();
+  if(!nombre || !cursoNombre){ showToast('Completa tu nombre y el nombre del curso.'); return; }
+  const clave = codigo6();
+  const uidTutor = uid('u');
+  const cid = uid('c');
+  DB.usuarios.push({ id: uidTutor, nombre, rol: 'tutor', cursoId: cid, claveAcceso: clave });
+  DB.cursos.push({ id: cid, nombre: cursoNombre, claveCurso: clave, tutorId: uidTutor });
+  await Promise.all(['usuarios','cursos'].map(saveCol));
+  // Mostrar clave y pedir confirmación
+  claveCursoContext = { modo:'registro', usuarioId: uidTutor, nombre, cursoId: cid, claveCorrecta: clave };
+  document.getElementById('claveCursoTitulo').textContent = '¡Tu curso quedó creado!';
+  document.getElementById('claveCursoTexto').textContent = 'Esta es la clave de tu curso. Guárdala: los docentes la usarán para vincularse. Ingrésala ahora para entrar:';
+  const box = document.getElementById('claveCursoMostrar');
+  box.style.display = 'block';
+  box.textContent = clave;
+  document.getElementById('claveCursoInput').value = '';
+  document.getElementById('ovClaveCurso').classList.remove('hidden');
+}
+
+function confirmarClaveCurso(){
+  const ingresada = (document.getElementById('claveCursoInput').value||'').trim().toUpperCase();
+  if(!claveCursoContext){ closeOv('ovClaveCurso'); return; }
+  if(ingresada !== claveCursoContext.claveCorrecta){ showToast('La clave no coincide. Revisa e intenta de nuevo.'); return; }
+  session = { usuarioId: claveCursoContext.usuarioId };
+  saveSession();
+  closeOv('ovClaveCurso');
+  enPantallaRegistro = false;
+  currentTab = 'inicio';
+  showToast('Sesión iniciada correctamente.');
+  render();
+}
+function cancelarClaveCurso(){
+  closeOv('ovClaveCurso');
+}
+
+function mostrarRegistroDocente(){
+  enPantallaRegistro = true;
+  modoDocente = 'login';
+  renderPantallaDocente();
+}
+function cambiarModoDocente(m){ modoDocente = m; renderPantallaDocente(); }
+
+function renderPantallaDocente(){
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="authwrap">
+      <div class="topbar" style="border-radius:0 0 26px 26px;">
+        <div class="brand"><div class="brand-left"><img class="crest" src="${LOGO_SRC}" alt="Escudo"><span>Enlace<span class="dot">·</span>Escolar</span></div></div>
+      </div>
+      <div class="authbody">
+        <div class="authtitle">Docente</div>
+        <div class="rolebar" style="margin:6px 0 16px;">
+          <button class="${modoDocente==='login'?'sel':''}" onclick="cambiarModoDocente('login')">Ya tengo clave</button>
+          <button class="${modoDocente==='nuevo'?'sel':''}" onclick="cambiarModoDocente('nuevo')">Registrarme</button>
+        </div>
+        <div id="docFormArea"></div>
+        <div class="sheet-actions">
+          <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
+          <button class="btn btn-primary" style="flex:1" onclick="${modoDocente==='login'?'iniciarSesionDocente()':'crearCuentaDocente()'}">${modoDocente==='login'?'Entrar':'Registrarme'}</button>
+        </div>
+      </div>
+    </div>`;
+  const area = document.getElementById('docFormArea');
+  if(modoDocente==='login'){
+    area.innerHTML = `
+      <div class="authsub">Ingresa tu clave de acceso personal.</div>
+      <label>Clave de acceso</label>
+      <input type="text" id="docClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
+  } else {
+    area.innerHTML = `
+      <div class="authsub">Regístrate con la clave del curso que te dio el Tutor.</div>
+      <label>Tu nombre</label>
+      <input type="text" id="docNombre" placeholder="Nombre y apellido">
+      <label>Clave del curso (del Tutor)</label>
+      <input type="text" id="docClaveCurso" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
+      <label>Asignatura que dictas</label>
+      <input type="text" id="docAsignatura" placeholder="Ej: Matemáticas">`;
+  }
+}
+
+async function iniciarSesionDocente(){
+  const clave = (document.getElementById('docClaveLogin').value||'').trim().toUpperCase();
+  if(!clave){ showToast('Ingresa tu clave.'); return; }
+  const u = DB.usuarios.find(x=>x.rol==='docente' && x.claveAcceso===clave);
+  if(!u){ showToast('Clave incorrecta o usuario no registrado.'); return; }
+  session = { usuarioId: u.id };
+  await saveSession();
+  enPantallaRegistro = false;
+  currentTab = 'inicio';
+  showToast('Bienvenido, '+u.nombre.split(' ')[0]);
+  render();
+}
+
+async function crearCuentaDocente(){
+  const nombre = (document.getElementById('docNombre').value||'').trim();
+  const claveCurso = (document.getElementById('docClaveCurso').value||'').trim().toUpperCase();
+  const asignatura = (document.getElementById('docAsignatura').value||'').trim();
+  if(!nombre || !claveCurso || !asignatura){ showToast('Completa todos los campos.'); return; }
+  const c = DB.cursos.find(x=>x.claveCurso===claveCurso);
+  if(!c){ showToast('No existe un curso con esa clave.'); return; }
+  const claveAcceso = codigo6();
+  const id = uid('u');
+  DB.usuarios.push({ id, nombre, rol: 'docente', claveAcceso });
+  DB.docenteCursos.push({ id: uid('dc'), docenteId: id, cursoId: c.id, asignatura });
+  await Promise.all(['usuarios','docenteCursos'].map(saveCol));
+  document.getElementById('claveNuevaTexto').textContent = 'Esta es tu clave personal de Docente. Guárdala para ingresar después:';
+  document.getElementById('claveNuevaValor').textContent = claveAcceso;
+  document.getElementById('ovClaveNueva').classList.remove('hidden');
+  window._claveNuevaUsuarioId = id;
+}
+
+function continuarClaveNueva(){
+  closeOv('ovClaveNueva');
+  if(window._claveNuevaUsuarioId){
+    session = { usuarioId: window._claveNuevaUsuarioId };
+    saveSession();
+    window._claveNuevaUsuarioId = null;
+    enPantallaRegistro = false;
+    currentTab = 'inicio';
+    render();
+  }
+}
+
+function mostrarRegistroRepresentante(){
+  enPantallaRegistro = true;
+  modoRepresentante = 'login';
+  renderPantallaRepresentante();
+}
+function cambiarModoRepresentante(m){ modoRepresentante = m; renderPantallaRepresentante(); }
+
+function renderPantallaRepresentante(){
+  const root = document.getElementById('root');
+  root.innerHTML = `
+    <div class="authwrap">
+      <div class="topbar" style="border-radius:0 0 26px 26px;">
+        <div class="brand"><div class="brand-left"><img class="crest" src="${LOGO_SRC}" alt="Escudo"><span>Enlace<span class="dot">·</span>Escolar</span></div></div>
+      </div>
+      <div class="authbody">
+        <div class="authtitle">Representante</div>
+        <div class="rolebar" style="margin:6px 0 16px;">
+          <button class="${modoRepresentante==='login'?'sel':''}" onclick="cambiarModoRepresentante('login')">Ya tengo clave</button>
+          <button class="${modoRepresentante==='nuevo'?'sel':''}" onclick="cambiarModoRepresentante('nuevo')">Registrarme</button>
+        </div>
+        <div id="repFormArea"></div>
+        <div class="sheet-actions">
+          <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
+          <button class="btn btn-primary" style="flex:1" onclick="${modoRepresentante==='login'?'iniciarSesionRepresentante()':'crearCuentaRepresentante()'}">${modoRepresentante==='login'?'Entrar':'Registrarme'}</button>
+        </div>
+      </div>
+    </div>`;
+  const area = document.getElementById('repFormArea');
+  if(modoRepresentante==='login'){
+    area.innerHTML = `
+      <div class="authsub">Ingresa tu clave de acceso personal.</div>
+      <label>Clave de acceso</label>
+      <input type="text" id="repClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
+  } else {
+    area.innerHTML = `
+      <div class="authsub">Usa el código de invitación que te dio el Tutor.</div>
+      <label>Tu nombre</label>
+      <input type="text" id="repNombre2" placeholder="Nombre y apellido">
+      <label>Código de invitación</label>
+      <input type="text" id="repCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
+  }
+}
+
+async function iniciarSesionRepresentante(){
+  const clave = (document.getElementById('repClaveLogin').value||'').trim().toUpperCase();
+  if(!clave){ showToast('Ingresa tu clave.'); return; }
+  const u = DB.usuarios.find(x=>x.rol==='representante' && x.claveAcceso===clave);
+  if(!u){ showToast('Clave incorrecta o usuario no registrado.'); return; }
+  session = { usuarioId: u.id };
+  await saveSession();
+  enPantallaRegistro = false;
+  currentTab = 'inicio';
+  showToast('Bienvenido, '+u.nombre.split(' ')[0]);
+  render();
+}
+
+async function crearCuentaRepresentante(){
+  const nombre = (document.getElementById('repNombre2').value||'').trim();
+  const codigo = (document.getElementById('repCodigo').value||'').trim().toUpperCase();
+  if(!nombre || !codigo){ showToast('Completa nombre y código.'); return; }
+  const est = DB.estudiantes.find(e=>e.codigoInvitacion===codigo && !e.representanteId);
+  if(!est){ showToast('Código inválido o ya utilizado.'); return; }
+  const claveAcceso = codigo6();
+  const id = uid('u');
+  DB.usuarios.push({ id, nombre, rol: 'representante', claveAcceso });
+  est.representanteId = id;
+  await Promise.all(['usuarios','estudiantes'].map(saveCol));
+  document.getElementById('claveNuevaTexto').textContent = 'Vinculado a '+est.nombre+'. Esta es tu clave personal. Guárdala:';
+  document.getElementById('claveNuevaValor').textContent = claveAcceso;
+  document.getElementById('ovClaveNueva').classList.remove('hidden');
+  window._claveNuevaUsuarioId = id;
+}
+
+
 async function cerrarSesion(){
   session = null;
   await saveSession();
