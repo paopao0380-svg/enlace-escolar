@@ -338,17 +338,28 @@ def h_mensajes_representante(params, body):
 
 # --- Borrado independiente por usuario ---
 def h_borrar_tutor(params, body):
+    """Solo el tutor puede borrar su curso, estudiantes, mensajes y representantes vinculados."""
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol='tutor'", (params['id'],))
     if not tutor:
         raise ApiError(404, 'Tutor no encontrado.')
     curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (params['id'],))
     if curso:
+        reps = rows(
+            'SELECT DISTINCT representante_id FROM estudiantes WHERE curso_id = ? AND representante_id IS NOT NULL',
+            (curso['id'],),
+        )
         run('DELETE FROM mensajes WHERE estudiante_id IN (SELECT id FROM estudiantes WHERE curso_id = ?)', (curso['id'],))
         run('DELETE FROM docente_cursos WHERE curso_id = ?', (curso['id'],))
         run('DELETE FROM estudiantes WHERE curso_id = ?', (curso['id'],))
         run('DELETE FROM cursos WHERE id = ?', (curso['id'],))
+        for r in reps:
+            rid = r['representante_id']
+            otros = row('SELECT id FROM estudiantes WHERE representante_id = ?', (rid,))
+            if not otros:
+                run("DELETE FROM usuarios WHERE id = ? AND rol = 'representante'", (rid,))
     run('DELETE FROM usuarios WHERE id = ?', (params['id'],))
     return 200, {'ok': True}
+
 
 
 def h_borrar_docente(params, body):
@@ -376,6 +387,38 @@ def h_borrar_todo(params, body):
     con.executescript('DELETE FROM mensajes; DELETE FROM dispositivos_push; DELETE FROM estudiantes; DELETE FROM docente_cursos; DELETE FROM cursos; DELETE FROM usuarios;')
     con.commit()
     return 200, {'ok': True}
+
+
+
+def h_mensaje_a_curso(params, body):
+    """Tutor envia el mismo mensaje a todos los representantes del curso."""
+    tutor_id = body.get('remitenteId') or params.get('id')
+    texto = (body.get('texto') or '').strip()
+    tipo = body.get('tipo') or 'alert'
+    if not tutor_id or not texto:
+        raise ApiError(400, 'Faltan datos del mensaje.')
+    tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol='tutor'", (tutor_id,))
+    if not tutor:
+        raise ApiError(404, 'Tutor no encontrado.')
+    curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (tutor_id,))
+    if not curso:
+        raise ApiError(404, 'No tienes un curso registrado.')
+    estudiantes = rows(
+        'SELECT * FROM estudiantes WHERE curso_id = ? AND representante_id IS NOT NULL',
+        (curso['id'],),
+    )
+    if not estudiantes:
+        raise ApiError(400, 'No hay representantes vinculados en este curso todavía.')
+    fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    creados = []
+    for est in estudiantes:
+        mid = uid('msg')
+        run(
+            'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)',
+            (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
+        )
+        creados.append(mid)
+    return 201, {'ok': True, 'enviados': len(creados), 'mensajeIds': creados}
 
 
 def h_salud(params, body):
@@ -412,6 +455,7 @@ ROUTES = [
     ('GET', r'^/api/usuarios/(?P<id>[^/]+)$', h_usuario_por_id),
 
     ('POST', r'^/api/mensajes$', h_crear_mensaje),
+    ('POST', r'^/api/mensajes/curso$', h_mensaje_a_curso),
     ('PATCH', r'^/api/mensajes/(?P<id>[^/]+)/confirmar$', h_confirmar_mensaje),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
 
