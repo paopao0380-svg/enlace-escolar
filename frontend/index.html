@@ -553,23 +553,26 @@ async function confirmarBorrarTodo() {
 }
 
 function borrarMisDatos() {
-  const textos = {
-    tutor: 'Se eliminará tu curso completo: los estudiantes que registraste, los mensajes de ese curso, y tu cuenta. Los Docentes y Representantes vinculados no se borran, solo pierden el acceso a este curso.',
-    docente: 'Se eliminará tu cuenta y tu vínculo con los cursos donde dabas clase, junto con los mensajes que enviaste. Los estudiantes y el curso del Tutor no se ven afectados.',
-    representante: 'Se eliminará tu cuenta y quedarás desvinculado de tu(s) hijo(a/os). El Tutor podrá generarles un nuevo código de invitación. El historial de mensajes ya enviados no se borra.',
-  };
-  document.getElementById('borrarMisDatosTexto').textContent = textos[me.rol];
+  if (me.rol !== 'tutor') {
+    showToast('Solo el Tutor puede eliminar los datos del curso.');
+    return;
+  }
+  document.getElementById('borrarMisDatosTexto').textContent =
+    'Se eliminará tu curso completo: estudiantes, mensajes, representantes vinculados a este curso y tu cuenta de Tutor. Esta acción no se puede deshacer.';
   document.getElementById('ovBorrarMisDatos').classList.remove('hidden');
 }
 
 async function confirmarBorrarMisDatos() {
   closeOv('ovBorrarMisDatos');
-  const rutaPorRol = { tutor: 'tutores', docente: 'docentes', representante: 'representantes' };
+  if (me.rol !== 'tutor') {
+    showToast('Solo el Tutor puede eliminar los datos del curso.');
+    return;
+  }
   try {
-    await api('DELETE', `/api/${rutaPorRol[me.rol]}/${me.id}`);
+    await api('DELETE', `/api/tutores/${me.id}`);
     session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null;
     guardarSesionLocal();
-    showToast('Tus datos fueron borrados correctamente.');
+    showToast('Curso y datos relacionados eliminados correctamente.');
     render();
   } catch (e) { showToast(e.message); }
 }
@@ -897,7 +900,7 @@ async function renderApp(root) {
         <span class="who" onclick="cerrarSesion()">${me.nombre.split(' ')[0]} · ${me.rol} ⟳</span>
       </div>
       <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
-      <button class="linkbtn" style="color:rgba(255,255,255,0.75);margin-top:8px;" onclick="borrarMisDatos()">Borrar mis datos</button>
+      ${me.rol === 'tutor' ? '<button class="linkbtn" style="color:rgba(255,255,255,0.75);margin-top:8px;" onclick="borrarMisDatos()">Borrar datos del curso</button>' : ''}
     </div>
     <div class="tabbar" id="tabbar">
       ${tabs.map(t => `
@@ -1067,8 +1070,14 @@ async function renderInicioTutor(screen) {
     lista = (await api('GET', `/api/cursos/${me.cursoId}/estudiantes`)).estudiantes;
   } catch (e) { showToast(e.message); }
 
+  const conRep = lista.filter(e => e.representanteId);
   screen.innerHTML = `<div class="section-title">${c?.nombre || 'Tu curso'}</div>` +
     `<div class="stu-meta" style="margin-bottom:10px;">Clave del curso: <span class="tag" style="margin-top:0;">${c?.claveCurso || ''}</span></div>` +
+    (conRep.length > 0
+      ? `<div style="margin-bottom:14px;">
+          <button class="btn btn-primary btn-block" onclick="abrirMensajeTodos()">📢 Mensaje a todos los representantes (${conRep.length})</button>
+        </div>`
+      : '') +
     (lista.length === 0
       ? '<div class="empty">Aún no registras estudiantes.<br>Usa el botón + para agregar el primero.</div>'
       : lista.map(e => `
@@ -1176,13 +1185,30 @@ async function enviarMensaje() {
   const texto = document.getElementById('mensajeTexto').value.trim();
   if (!texto) { showToast('Escribe un mensaje antes de enviarlo.'); return; }
   try {
-    await api('POST', '/api/mensajes', {
-      estudianteId: mensajeEstudianteId, remitenteId: me.id, remitenteRol: me.rol, tipo: mensajeTipo, texto,
-    });
-    closeOv('ovMensaje');
-    showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : 'Mensaje entregado al tutor y al representante.');
+    if (mensajeEstudianteId === '__TODOS__') {
+      const r = await api('POST', '/api/mensajes/curso', {
+        remitenteId: me.id, tipo: mensajeTipo, texto,
+      });
+      closeOv('ovMensaje');
+      showToast('Mensaje enviado a ' + r.enviados + ' representante(s).');
+    } else {
+      await api('POST', '/api/mensajes', {
+        estudianteId: mensajeEstudianteId, remitenteId: me.id, remitenteRol: me.rol, tipo: mensajeTipo, texto,
+      });
+      closeOv('ovMensaje');
+      showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : 'Mensaje entregado al tutor y al representante.');
+    }
     render();
   } catch (e) { showToast(e.message); }
+}
+
+function abrirMensajeTodos() {
+  mensajeEstudianteId = '__TODOS__';
+  mensajeTipo = 'alert';
+  document.getElementById('mensajeDestino').textContent = 'Se enviará a TODOS los representantes vinculados de este curso';
+  document.getElementById('mensajeTexto').value = '';
+  seleccionarTipo('alert');
+  document.getElementById('ovMensaje').classList.remove('hidden');
 }
 
 // ===================== vincular representante adicional =====================
