@@ -2,7 +2,7 @@
 // Necesario para que el navegador considere la app "instalable" (requisito de las PWA).
 // Guarda en caché los archivos de la interfaz para que abra rápido y funcione
 // aunque haya poca señal; los datos (API) siempre se piden en vivo al servidor.
-const CACHE_NAME = 'enlace-escolar-v1';
+const CACHE_NAME = 'enlace-escolar-demo-v1';
 const ARCHIVOS_BASE = [
   './index.html',
   './manifest.json',
