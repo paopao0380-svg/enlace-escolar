@@ -17,21 +17,23 @@ con = get_conn()
 
 
 # ---------- helpers de base de datos ----------
+from db import execute, execute_write
+
 def row(sql, params=()):
-    cur = con.execute(sql, params)
-    r = cur.fetchone()
-    return dict(r) if r else None
+    cols, data = execute(sql, params)
+    if not data:
+        return None
+    return {cols[i]: data[0][i] for i in range(len(cols))}
 
 
 def rows(sql, params=()):
-    cur = con.execute(sql, params)
-    return [dict(r) for r in cur.fetchall()]
+    cols, data = execute(sql, params)
+    return [{cols[i]: r[i] for i in range(len(cols))} for r in data]
 
 
 def run(sql, params=()):
-    cur = con.execute(sql, params)
-    con.commit()
-    return cur
+    execute_write(sql, params)
+    return None
 
 
 # ---------- serializadores ----------
@@ -384,8 +386,15 @@ def h_borrar_representante(params, body):
 
 
 def h_borrar_todo(params, body):
-    con.executescript('DELETE FROM mensajes; DELETE FROM dispositivos_push; DELETE FROM estudiantes; DELETE FROM docente_cursos; DELETE FROM cursos; DELETE FROM usuarios;')
-    con.commit()
+    for stmt in [
+        'DELETE FROM mensajes',
+        'DELETE FROM dispositivos_push',
+        'DELETE FROM estudiantes',
+        'DELETE FROM docente_cursos',
+        'DELETE FROM cursos',
+        'DELETE FROM usuarios',
+    ]:
+        execute_write(stmt)
     return 200, {'ok': True}
 
 
