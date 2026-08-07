@@ -1,2 +1,1 @@
-# Dependencias Enlace Escolar API
 libsql-client>=0.3.0

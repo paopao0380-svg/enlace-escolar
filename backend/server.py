@@ -8,11 +8,14 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-from db import get_conn, init_db, uid, codigo6
+from db import get_conn, init_db, uid, codigo6, db_status
 
 PORT = int(os.environ.get('PORT', 3000))
 
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print('init_db error:', e)
 con = get_conn()
 
 
@@ -431,7 +434,13 @@ def h_mensaje_a_curso(params, body):
 
 
 def h_salud(params, body):
-    return 200, {'ok': True, 'servicio': 'Enlace Escolar API (Python)', 'hora': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    st = db_status()
+    return 200, {
+        'ok': True,
+        'servicio': 'Enlace Escolar API (Python)',
+        'hora': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        'db': st,
+    }
 
 
 # ---------- tabla de rutas ----------
