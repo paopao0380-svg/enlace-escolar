@@ -1,1 +1,1 @@
-libsql-client>=0.3.0
+# Sin dependencias externas: Turso por HTTP + librería estándar
