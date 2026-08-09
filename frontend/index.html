@@ -1580,15 +1580,8 @@ async function init() {
   session = cargarSesionLocal();
   ready = true;
   render();
-  setInterval(() => {
-    if (!session || enPantallaRegistro) return;
-    if (window._lockRender) return;
-    if (me && (me.rol === 'rector' || me.rol === 'inspector') && currentTab === 'inicio') return;
-    const ae = document.activeElement;
-    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
-    if (document.getElementById('textoInst')) return;
-    render();
-  }, 4000);
+  // Sin refresco automático de pantalla (evita parpadeo).
+  // Los datos se actualizan al cambiar de pestaña, al enviar o al reabrir la App.
 }
 init();
 
