@@ -534,6 +534,7 @@ let docenteFilaCount = 0;
 
 // ===================== render raíz =====================
 async function render() {
+  if (window._lockRender) return;
   enPantallaRegistro = false;
   const root = document.getElementById('root');
   if (!session) { renderAuth(root); return; }
@@ -1009,6 +1010,7 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+
 function guardarBorradorInst() {
   const ta = document.getElementById('textoInst');
   if (ta) window._borradorInst = ta.value;
@@ -1016,10 +1018,45 @@ function guardarBorradorInst() {
   if (sel) destinoInstId = sel.value || null;
 }
 
-async function refreshPantallaAutoridad() {
+function setDestinoInst(v) {
   guardarBorradorInst();
-  const screen = document.getElementById('screen');
-  if (screen) await renderInicioAutoridad(screen);
+  destinoInstTipo = v;
+  if (v !== 'tutor' && v !== 'docente') destinoInstId = null;
+  actualizarSoloDestinoAutoridad();
+}
+
+function setTipoInst(v) {
+  guardarBorradorInst();
+  window._tipoInst = v;
+  // solo botones de tipo, sin tocar el textarea
+  document.querySelectorAll('[data-tipo-inst]').forEach(btn => {
+    btn.classList.toggle('sel', btn.getAttribute('data-tipo-inst') === v);
+  });
+}
+
+function actualizarSoloDestinoAutoridad() {
+  const box = document.getElementById('destinoExtraBox');
+  if (!box) return;
+  // marcar radios
+  document.querySelectorAll('[data-destino-inst]').forEach(lab => {
+    const v = lab.getAttribute('data-destino-inst');
+    lab.classList.toggle('sel', v === destinoInstTipo);
+    const input = lab.querySelector('input');
+    if (input) input.checked = (v === destinoInstTipo);
+  });
+  let selectHtml = '';
+  if (destinoInstTipo === 'tutor') {
+    selectHtml = '<label>Tutor</label><select id="selDestinoId" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;">'
+      + '<option value="">Selecciona...</option>'
+      + listaTutoresAut.map(u => '<option value="'+u.id+'"'+(destinoInstId===u.id?' selected':'')+'>'+escapeHtml(u.nombre)+(u.cursoNombre?' · '+escapeHtml(u.cursoNombre):'')+'</option>').join('')
+      + '</select>';
+  } else if (destinoInstTipo === 'docente') {
+    selectHtml = '<label>Docente</label><select id="selDestinoId" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;">'
+      + '<option value="">Selecciona...</option>'
+      + listaDocentesAut.map(u => '<option value="'+u.id+'"'+(destinoInstId===u.id?' selected':'')+'>'+escapeHtml(u.nombre)+'</option>').join('')
+      + '</select>';
+  }
+  box.innerHTML = selectHtml;
 }
 
 async function renderInicioAutoridad(screen) {
@@ -1042,44 +1079,48 @@ async function renderInicioAutoridad(screen) {
     ['tutor', 'A un tutor específico'],
     ['docente', 'A un docente específico'],
   ];
-
-  let selectHtml = '';
-  if (destinoInstTipo === 'tutor') {
-    selectHtml = '<label>Tutor</label><select id="selDestinoId" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;">'
-      + '<option value="">Selecciona...</option>'
-      + listaTutoresAut.map(u => '<option value="'+u.id+'"'+(destinoInstId===u.id?' selected':'')+'>'+escapeHtml(u.nombre)+(u.cursoNombre?' · '+escapeHtml(u.cursoNombre):'')+'</option>').join('')
-      + '</select>';
-  } else if (destinoInstTipo === 'docente') {
-    selectHtml = '<label>Docente</label><select id="selDestinoId" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px;">'
-      + '<option value="">Selecciona...</option>'
-      + listaDocentesAut.map(u => '<option value="'+u.id+'"'+(destinoInstId===u.id?' selected':'')+'>'+escapeHtml(u.nombre)+'</option>').join('')
-      + '</select>';
-  }
-
   const tipo = window._tipoInst || 'info';
   const borrador = window._borradorInst || '';
+
+  // Si el formulario ya existe, no lo reconstruyas (evita borrar texto en el celular)
+  if (document.getElementById('textoInst') && document.getElementById('formAutoridadCard')) {
+    actualizarSoloDestinoAutoridad();
+    return;
+  }
+
   screen.innerHTML = `
     <div class="section-title">Enviar comunicado</div>
-    <div class="card" style="padding:14px;">
+    <div class="card" id="formAutoridadCard" style="padding:14px;">
       <div class="stu-meta" style="margin-bottom:8px;">Como ${me.rol === 'rector' ? 'Rector' : 'Inspector'} puedes escribir a tutores y docentes.</div>
       <label>Destinatario</label>
-      <div class="destino-opciones">
-        ${opts.map(([v,l]) => '<label class="'+(destinoInstTipo===v?'sel':'')+'" onclick="destinoInstTipo=\''+v+'\';destinoInstId=null;refreshPantallaAutoridad();"><input type="radio" name="dest" '+(destinoInstTipo===v?'checked':'')+'> '+l+'</label>').join('')}
+      <div class="destino-opciones" id="destinoOpcionesBox">
+        ${opts.map(([v,l]) => '<label data-destino-inst="'+v+'" class="'+(destinoInstTipo===v?'sel':'')+'" onclick="setDestinoInst(\''+v+'\')"><input type="radio" name="dest" '+(destinoInstTipo===v?'checked':'')+'> '+l+'</label>').join('')}
       </div>
-      ${selectHtml}
+      <div id="destinoExtraBox"></div>
       <label>Tipo</label>
       <div class="rolebar" style="margin-bottom:10px;">
-        <button type="button" class="${tipo==='info'?'sel':''}" onclick="window._tipoInst='info';refreshPantallaAutoridad();">Comunicado</button>
-        <button type="button" class="${tipo==='sage'?'sel':''}" onclick="window._tipoInst='sage';refreshPantallaAutoridad();">Felicitación</button>
-        <button type="button" class="${tipo==='alert'?'sel':''}" onclick="window._tipoInst='alert';refreshPantallaAutoridad();">Llamado</button>
+        <button type="button" data-tipo-inst="info" class="${tipo==='info'?'sel':''}" onclick="setTipoInst('info')">Comunicado</button>
+        <button type="button" data-tipo-inst="sage" class="${tipo==='sage'?'sel':''}" onclick="setTipoInst('sage')">Felicitación</button>
+        <button type="button" data-tipo-inst="alert" class="${tipo==='alert'?'sel':''}" onclick="setTipoInst('alert')">Llamado</button>
       </div>
       <label>Mensaje</label>
-      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;" oninput="window._borradorInst=this.value"></textarea>
+      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;font-size:16px;"></textarea>
       <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="enviarMensajeInstitucional()">Enviar mensaje</button>
     </div>`;
+
+  actualizarSoloDestinoAutoridad();
   const ta = document.getElementById('textoInst');
-  if (ta) ta.value = borrador;
+  if (ta) {
+    ta.value = borrador;
+    ta.addEventListener('focus', () => { window._lockRender = true; });
+    ta.addEventListener('blur', () => {
+      window._borradorInst = ta.value;
+      setTimeout(() => { window._lockRender = false; }, 400);
+    });
+    ta.addEventListener('input', () => { window._borradorInst = ta.value; });
+  }
 }
+
 
 async function enviarMensajeInstitucional() {
   const texto = (document.getElementById('textoInst').value || '').trim();
@@ -1100,6 +1141,7 @@ async function enviarMensajeInstitucional() {
     });
     showToast('Mensaje enviado correctamente.');
     window._borradorInst = '';
+    window._lockRender = false;
     currentTab = 'mensajes';
     render();
   } catch (e) { showToast(e.message); }
@@ -1531,9 +1573,10 @@ async function init() {
   render();
   setInterval(() => {
     if (!session || enPantallaRegistro) return;
+    if (window._lockRender) return;
+    if (me && (me.rol === 'rector' || me.rol === 'inspector') && currentTab === 'inicio') return;
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
-    // Evitar borrar borradores al refrescar
     if (document.getElementById('textoInst')) return;
     render();
   }, 4000);
