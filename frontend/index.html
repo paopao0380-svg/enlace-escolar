@@ -1114,12 +1114,15 @@ async function renderMensajesAutoridad(screen) {
     screen.innerHTML = '<div class="section-title">Enviados</div><div class="empty">Aún no has enviado comunicados.</div>';
     return;
   }
-  screen.innerHTML = '<div class="section-title">Enviados</div>' + lista.map(m =>
-    '<div class="card msg '+(m.tipo||'info')+'" style="margin-bottom:10px;">'
-    + '<div class="msg-head"><span class="tag">'+destinoLabel(m.destinoTipo)+'</span>'
-    + '<span class="msg-date">'+fmtFecha(m.fecha)+'</span></div>'
-    + '<div class="msg-body">'+escapeHtml(m.texto)+'</div></div>'
-  ).join('');
+  screen.innerHTML = '<div class="section-title">Enviados</div>' + lista.map(m => {
+    const tipoTxt = tipoLabel(m.tipo || 'info');
+    return '<div class="msg-card tipo-'+(m.tipo||'info')+'">'
+      + '<div class="msg-head"><span class="msg-tipo">'+tipoTxt+'</span>'
+      + '<span class="msg-date">'+fmtFecha(m.fecha)+'</span></div>'
+      + '<div class="msg-stu">'+escapeHtml(destinoLabel(m.destinoTipo))+'</div>'
+      + '<div class="msg-text">'+escapeHtml(m.texto)+'</div>'
+      + '</div>';
+  }).join('');
 }
 
 // ===================== app principal =====================
@@ -1388,14 +1391,22 @@ function renderMensajes(screen, lista, mensajesInst) {
   const campo = me.rol === 'tutor' ? 'confirmadoTutor' : me.rol === 'representante' ? 'confirmadoRepresentante' : null;
   const ordenada = lista.slice().reverse();
   const bloqueInst = (me.rol === 'tutor' || me.rol === 'docente') && mensajesInst.length
-    ? `<div class="section-title">Comunicados institucionales</div>` + mensajesInst.map(m => `
+    ? `<div class="section-title">Comunicados institucionales</div>` + mensajesInst.map(m => {
+        const rolAut = m.remitenteRol === 'rector' ? 'Rector' : m.remitenteRol === 'inspector' ? 'Inspector' : 'Autoridad';
+        const tipoTxt = tipoLabel(m.tipo || 'info');
+        return `
         <div class="msg-card tipo-${m.tipo||'info'}">
-          <div class="msg-top">
-            <span class="msg-tipo">${(m.remitenteRol||'').toUpperCase()} · ${escapeHtml(m.remitenteNombre||'Autoridad')}</span>
-            <span class="msg-fecha">${fmtFecha(m.fecha)}</span>
+          <div class="msg-head">
+            <span class="msg-tipo">${tipoTxt}</span>
+            <span class="msg-date">${fmtFecha(m.fecha)}</span>
           </div>
-          <div class="msg-texto">${escapeHtml(m.texto)}</div>
-        </div>`).join('')
+          <div class="msg-stu">${escapeHtml(m.remitenteNombre || rolAut)}</div>
+          <div class="msg-text">${escapeHtml(m.texto)}</div>
+          <div class="msg-chain">
+            <span class="chip">${rolAut}</span>
+          </div>
+        </div>`;
+      }).join('')
     : '';
 
   screen.innerHTML = bloqueInst + `<div class="section-title">${me.rol === 'docente' ? 'Mensajes enviados' : 'Mensajes recibidos'}</div>` +
