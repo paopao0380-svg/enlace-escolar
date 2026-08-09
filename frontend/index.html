@@ -187,8 +187,8 @@
     .user-name{font-size:13px;}
     .user-role{font-size:11px;}
     .tabbar button{font-size:12px;}
-    .authtitle{font-size:25px;}
-    .authsub{font-size:14.5px;}
+    .authtitle{font-family:'Fraunces',serif;font-size:28px;font-weight:600;color:#1A2744;text-align:center;letter-spacing:-0.3px;margin:6px 0 8px;}
+    .authsub{font-size:13.5px;line-height:1.45;color:#5C5866;text-align:center;margin:0 12px 18px;font-weight:500;}
     .helptext{font-size:12.5px;}
     .rolecard{min-height:100px;padding:14px 14px;}
     .rolecard .illus{width:92px;min-width:92px;height:78px;}
@@ -294,7 +294,7 @@
     width:100% !important;
     max-width:100% !important;
     padding:0 !important;
-    margin:0 0 10px 0 !important;
+    margin:0 0 12px 0 !important;
     border:none !important;
     outline:none !important;
     background:transparent !important;
@@ -304,7 +304,9 @@
     box-shadow:none !important;
     line-height:0 !important;
     -webkit-tap-highlight-color:transparent;
+    transition:transform 0.15s ease, filter 0.15s ease;
   }
+  .rolecard-img:active{transform:scale(0.98);filter:brightness(0.97);}
   .rolecard-img:active{transform:scale(0.98);opacity:0.95;}
   .rolecard-img + .rolecard-img{margin-top:12px;}
   .rolecard-img.rolecard-autoridades{margin-top:14px;}
@@ -320,9 +322,7 @@
     image-rendering:auto;
     -webkit-backface-visibility:hidden;
   }
-  .authbody{
-    padding:20px 14px 24px !important;
-  }
+  .authbody{padding:18px 16px 28px !important;}
 
   .curso-fila{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
   .icon-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;color:var(--muted);}
