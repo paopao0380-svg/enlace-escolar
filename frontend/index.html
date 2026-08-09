@@ -326,15 +326,15 @@
     width:100%;margin-top:18px;padding:12px 14px;
     border:none;cursor:pointer;text-align:left;
     border-radius:16px;
-    background:linear-gradient(135deg,#FFFFFF 0%,#F3F6FB 55%,#EEF3FA 100%);
-    border:1px solid rgba(30,58,92,0.14);
-    box-shadow:0 4px 14px rgba(18,40,64,0.08);
+    background:linear-gradient(135deg,#FBF6EA 0%,#F5EDD8 55%,#EFE4C8 100%);
+    border:1px solid rgba(184,134,47,0.28);
+    box-shadow:0 3px 12px rgba(30,58,92,0.07);
     position:relative;overflow:hidden;
     font-family:inherit;
   }
   .auth-authority-card::before{
     content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
-    background:linear-gradient(180deg,#1E3A5C 0%,#B8862F 100%);
+    background:linear-gradient(180deg,#B8862F 0%,#1E3A5C 100%);
     border-radius:16px 0 0 16px;
   }
   .auth-authority-card:active{transform:scale(0.985);opacity:0.96;}
@@ -355,8 +355,8 @@
     color:#1E3A5C;letter-spacing:0.02em;
   }
   .auth-authority-hint{
-    margin-top:3px;font-size:11px;font-weight:500;
-    color:#726F76;line-height:1.3;
+    display:block;margin-top:4px;font-size:12px;font-weight:500;
+    color:#5C5850;line-height:1.35;
   }
   .auth-authority-arrow{
     flex-shrink:0;width:28px;height:28px;border-radius:50%;
@@ -624,8 +624,7 @@ function renderAuth(root) {
             </svg>
           </span>
           <span class="auth-authority-texts">
-            <span class="auth-authority-title">Autoridades institucionales</span>
-            <span class="auth-authority-roles">Rector · Inspector</span>
+            <span class="auth-authority-title">Autoridades</span>
             <span class="auth-authority-hint">Comunicados al equipo docente</span>
           </span>
           <span class="auth-authority-arrow" aria-hidden="true">→</span>
