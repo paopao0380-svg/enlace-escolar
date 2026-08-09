@@ -1009,6 +1009,19 @@ function escapeHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function guardarBorradorInst() {
+  const ta = document.getElementById('textoInst');
+  if (ta) window._borradorInst = ta.value;
+  const sel = document.getElementById('selDestinoId');
+  if (sel) destinoInstId = sel.value || null;
+}
+
+async function refreshPantallaAutoridad() {
+  guardarBorradorInst();
+  const screen = document.getElementById('screen');
+  if (screen) await renderInicioAutoridad(screen);
+}
+
 async function renderInicioAutoridad(screen) {
   try {
     const [t, d] = await Promise.all([
@@ -1044,25 +1057,28 @@ async function renderInicioAutoridad(screen) {
   }
 
   const tipo = window._tipoInst || 'info';
+  const borrador = window._borradorInst || '';
   screen.innerHTML = `
     <div class="section-title">Enviar comunicado</div>
     <div class="card" style="padding:14px;">
       <div class="stu-meta" style="margin-bottom:8px;">Como ${me.rol === 'rector' ? 'Rector' : 'Inspector'} puedes escribir a tutores y docentes.</div>
       <label>Destinatario</label>
       <div class="destino-opciones">
-        ${opts.map(([v,l]) => '<label class="'+(destinoInstTipo===v?'sel':'')+'" onclick="destinoInstTipo=\''+v+'\';destinoInstId=null;render();"><input type="radio" name="dest" '+(destinoInstTipo===v?'checked':'')+'> '+l+'</label>').join('')}
+        ${opts.map(([v,l]) => '<label class="'+(destinoInstTipo===v?'sel':'')+'" onclick="destinoInstTipo=\''+v+'\';destinoInstId=null;refreshPantallaAutoridad();"><input type="radio" name="dest" '+(destinoInstTipo===v?'checked':'')+'> '+l+'</label>').join('')}
       </div>
       ${selectHtml}
       <label>Tipo</label>
       <div class="rolebar" style="margin-bottom:10px;">
-        <button type="button" class="${tipo==='info'?'sel':''}" onclick="window._tipoInst='info';render();">Comunicado</button>
-        <button type="button" class="${tipo==='sage'?'sel':''}" onclick="window._tipoInst='sage';render();">Felicitación</button>
-        <button type="button" class="${tipo==='alert'?'sel':''}" onclick="window._tipoInst='alert';render();">Llamado</button>
+        <button type="button" class="${tipo==='info'?'sel':''}" onclick="window._tipoInst='info';refreshPantallaAutoridad();">Comunicado</button>
+        <button type="button" class="${tipo==='sage'?'sel':''}" onclick="window._tipoInst='sage';refreshPantallaAutoridad();">Felicitación</button>
+        <button type="button" class="${tipo==='alert'?'sel':''}" onclick="window._tipoInst='alert';refreshPantallaAutoridad();">Llamado</button>
       </div>
       <label>Mensaje</label>
-      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;"></textarea>
+      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;" oninput="window._borradorInst=this.value"></textarea>
       <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="enviarMensajeInstitucional()">Enviar mensaje</button>
     </div>`;
+  const ta = document.getElementById('textoInst');
+  if (ta) ta.value = borrador;
 }
 
 async function enviarMensajeInstitucional() {
@@ -1083,6 +1099,7 @@ async function enviarMensajeInstitucional() {
       texto: texto,
     });
     showToast('Mensaje enviado correctamente.');
+    window._borradorInst = '';
     currentTab = 'mensajes';
     render();
   } catch (e) { showToast(e.message); }
@@ -1503,6 +1520,10 @@ async function init() {
   render();
   setInterval(() => {
     if (!session || enPantallaRegistro) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
+    // Evitar borrar borradores al refrescar
+    if (document.getElementById('textoInst')) return;
     render();
   }, 4000);
 }
