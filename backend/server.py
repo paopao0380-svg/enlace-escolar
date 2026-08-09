@@ -390,6 +390,7 @@ def h_borrar_representante(params, body):
 
 def h_borrar_todo(params, body):
     for stmt in [
+        'DELETE FROM mensajes_institucionales',
         'DELETE FROM mensajes',
         'DELETE FROM dispositivos_push',
         'DELETE FROM estudiantes',
@@ -431,6 +432,132 @@ def h_mensaje_a_curso(params, body):
         )
         creados.append(mid)
     return 201, {'ok': True, 'enviados': len(creados), 'mensajeIds': creados}
+
+
+
+def h_crear_autoridad(params, body):
+    nombre = (body.get('nombre') or '').strip()
+    rol = (body.get('rol') or '').strip().lower()
+    if rol not in ('rector', 'inspector'):
+        raise ApiError(400, 'Rol inválido. Use rector o inspector.')
+    if not nombre:
+        raise ApiError(400, 'Ingresa tu nombre.')
+    clave = codigo6()
+    aid = uid('aut')
+    run('INSERT INTO usuarios (id, nombre, rol, clave_acceso) VALUES (?,?,?,?)', (aid, nombre, rol, clave))
+    return 201, {'usuarioId': aid, 'claveAcceso': clave, 'rol': rol}
+
+
+def h_login_autoridad(params, body):
+    clave = (body.get('claveAcceso') or '').strip().upper()
+    if not clave:
+        raise ApiError(400, 'Ingresa tu clave de acceso.')
+    u = row("SELECT * FROM usuarios WHERE clave_acceso = ? AND rol IN ('rector','inspector')", (clave,))
+    if not u:
+        raise ApiError(401, 'Clave incorrecta o usuario no registrado.')
+    return 200, {'usuario': ser_usuario(u)}
+
+
+def h_lista_tutores(params, body):
+    lista = rows("SELECT id, nombre, curso_id FROM usuarios WHERE rol='tutor' ORDER BY nombre")
+    out = []
+    for u in lista:
+        c = row('SELECT nombre, clave_curso FROM cursos WHERE tutor_id = ?', (u['id'],))
+        out.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'cursoNombre': c['nombre'] if c else '',
+            'claveCurso': c['clave_curso'] if c else '',
+        })
+    return 200, {'tutores': out}
+
+
+def h_lista_docentes(params, body):
+    lista = rows("SELECT id, nombre FROM usuarios WHERE rol='docente' ORDER BY nombre")
+    out = []
+    for u in lista:
+        cursos = rows(
+            "SELECT c.nombre AS nombre, dc.asignatura AS asignatura FROM docente_cursos dc JOIN cursos c ON c.id = dc.curso_id WHERE dc.docente_id = ?",
+            (u['id'],),
+        )
+        out.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'cursos': [{'nombre': x['nombre'], 'asignatura': x['asignatura']} for x in cursos],
+        })
+    return 200, {'docentes': out}
+
+
+def ser_msg_inst(m, remitente_nombre=None):
+    return {
+        'id': m['id'],
+        'remitenteId': m['remitente_id'],
+        'remitenteRol': m['remitente_rol'],
+        'remitenteNombre': remitente_nombre or '',
+        'destinoTipo': m['destino_tipo'],
+        'destinoId': m['destino_id'],
+        'tipo': m['tipo'],
+        'texto': m['texto'],
+        'fecha': m['fecha'],
+    }
+
+
+def h_crear_mensaje_institucional(params, body):
+    remitente_id = body.get('remitenteId')
+    destino_tipo = (body.get('destinoTipo') or '').strip()
+    destino_id = body.get('destinoId')
+    tipo = (body.get('tipo') or 'info').strip()
+    texto = (body.get('texto') or '').strip()
+    if not remitente_id or not destino_tipo or not texto:
+        raise ApiError(400, 'Completa destino y mensaje.')
+    if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente'):
+        raise ApiError(400, 'Destino no válido.')
+    if destino_tipo in ('tutor', 'docente') and not destino_id:
+        raise ApiError(400, 'Selecciona el destinatario.')
+    rem = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
+    if not rem or rem['rol'] not in ('rector', 'inspector'):
+        raise ApiError(403, 'Solo Rector o Inspector pueden enviar este tipo de mensaje.')
+    mid = uid('mi')
+    fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    run(
+        "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+        (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha),
+    )
+    return 201, {'ok': True, 'mensajeId': mid}
+
+
+def h_mensajes_enviados_autoridad(params, body):
+    aid = params['id']
+    lista = rows(
+        'SELECT * FROM mensajes_institucionales WHERE remitente_id = ? ORDER BY fecha DESC',
+        (aid,),
+    )
+    return 200, {'mensajes': [ser_msg_inst(m) for m in lista]}
+
+
+def h_mensajes_institucionales_recibidos(params, body):
+    uid_user = params['id']
+    u = row('SELECT * FROM usuarios WHERE id = ?', (uid_user,))
+    if not u:
+        raise ApiError(404, 'Usuario no encontrado.')
+    rol = u['rol']
+    if rol == 'tutor':
+        lista = rows(
+            "SELECT * FROM mensajes_institucionales WHERE destino_tipo = 'todos_tutores' OR (destino_tipo = 'tutor' AND destino_id = ?) ORDER BY fecha DESC",
+            (uid_user,),
+        )
+    elif rol == 'docente':
+        lista = rows(
+            "SELECT * FROM mensajes_institucionales WHERE destino_tipo = 'todos_docentes' OR (destino_tipo = 'docente' AND destino_id = ?) ORDER BY fecha DESC",
+            (uid_user,),
+        )
+    else:
+        lista = []
+    out = []
+    for m in lista:
+        rem = row('SELECT nombre FROM usuarios WHERE id = ?', (m['remitente_id'],))
+        out.append(ser_msg_inst(m, rem['nombre'] if rem else ''))
+    return 200, {'mensajes': out}
 
 
 def h_salud(params, body):
@@ -476,6 +603,14 @@ ROUTES = [
     ('POST', r'^/api/mensajes/curso$', h_mensaje_a_curso),
     ('PATCH', r'^/api/mensajes/(?P<id>[^/]+)/confirmar$', h_confirmar_mensaje),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
+
+    ('POST', r'^/api/autoridades$', h_crear_autoridad),
+    ('POST', r'^/api/autoridades/login$', h_login_autoridad),
+    ('GET', r'^/api/autoridades/tutores$', h_lista_tutores),
+    ('GET', r'^/api/autoridades/docentes$', h_lista_docentes),
+    ('POST', r'^/api/autoridades/mensajes$', h_crear_mensaje_institucional),
+    ('GET', r'^/api/autoridades/(?P<id>[^/]+)/mensajes$', h_mensajes_enviados_autoridad),
+    ('GET', r'^/api/usuarios/(?P<id>[^/]+)/mensajes-institucionales$', h_mensajes_institucionales_recibidos),
 
     ('POST', r'^/api/borrar-todo$', h_borrar_todo),
     ('GET', r'^/api/salud$', h_salud),

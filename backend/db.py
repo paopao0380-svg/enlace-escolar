@@ -250,6 +250,16 @@ def init_db():
             usuario_id TEXT NOT NULL,
             token TEXT NOT NULL
         )""",
+        """CREATE TABLE IF NOT EXISTS mensajes_institucionales (
+            id TEXT PRIMARY KEY,
+            remitente_id TEXT NOT NULL,
+            remitente_rol TEXT NOT NULL,
+            destino_tipo TEXT NOT NULL,
+            destino_id TEXT,
+            tipo TEXT NOT NULL,
+            texto TEXT NOT NULL,
+            fecha TEXT NOT NULL
+        )""",
     ]
     for s in statements:
         execute_write(s)
