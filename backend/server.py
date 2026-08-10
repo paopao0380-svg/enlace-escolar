@@ -777,6 +777,17 @@ def h_admin_crear_autoridad(params, body):
     return 201, {'usuarioId': aid, 'claveAcceso': clave, 'rol': rol, 'nombre': nombre}
 
 
+
+def h_admin_borrar_usuario(params, body):
+    require_admin(body)
+    uid_del = (body.get('id') or '').strip()
+    rol = (body.get('rol') or '').strip().lower()
+    if not uid_del or rol not in ('tutor', 'docente'):
+        raise ApiError(400, 'Indica el usuario y el rol (tutor o docente).')
+    if rol == 'tutor':
+        return h_borrar_tutor({'id': uid_del}, body)
+    return h_borrar_docente({'id': uid_del}, body)
+
 def h_admin_borrar_todo(params, body):
     require_admin(body)
     for stmt in [
@@ -847,6 +858,7 @@ ROUTES = [
     ('POST', r'^/api/admin/resumen$', h_admin_resumen),
     ('POST', r'^/api/admin/autoridades$', h_admin_crear_autoridad),
     ('POST', r'^/api/admin/borrar-todo$', h_admin_borrar_todo),
+    ('POST', r'^/api/admin/borrar-usuario$', h_admin_borrar_usuario),
     ('GET', r'^/api/salud$', h_salud),
 ]
 COMPILED_ROUTES = [(m, re.compile(p), h) for (m, p, h) in ROUTES]
