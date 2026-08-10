@@ -1388,18 +1388,25 @@ async function renderInicioDocente(screen) {
       ${misCursos.map(c => `<option value="${c.docenteCursoId}" ${c.docenteCursoId === docenteCursoActivo ? 'selected' : ''}>${c.cursoNombre} — ${c.asignatura}</option>`).join('')}
     </select>` : '';
 
+  const tutorNombre = lista.find(e => e.tutorNombre)?.tutorNombre || '';
+  const botonTutor = activa ? `
+    <div style="margin:12px 0 14px;">
+      <button type="button" class="btn-broadcast" onclick="abrirMensajeTutor()">📢 Enviar mensaje al Tutor${tutorNombre ? ' · ' + tutorNombre : ''}</button>
+    </div>` : '';
+
   screen.innerHTML = `<div class="section-title">Mis cursos</div>` + selector +
     (misCursos.length === 0
       ? '<div class="empty">Aún no te has vinculado a ningún curso.<br>Usa el botón + e ingresa la clave que te dio el tutor.</div>'
-      : lista.length === 0
-        ? '<div class="empty" style="padding-top:18px;">El tutor de este curso aún no ha registrado estudiantes.</div>'
-        : '<div class="stu-meta" style="margin:12px 0 10px;">Lista registrada por el tutor del curso. Selecciona un estudiante para enviarle un mensaje.</div>' +
-          lista.map(e => `
-            <div class="card">
-              <div class="stu-name">${e.nombre}</div>
-              <div class="stu-meta">Tutor: ${e.tutorNombre || '—'}<br>Representante: ${e.representanteId ? e.representanteNombre : 'pendiente de vincular'}</div>
-              <div class="row-actions"><button class="btn btn-primary" style="flex:1" onclick="abrirMensaje('${e.id}')">Enviar mensaje</button></div>
-            </div>`).join(''));
+      : botonTutor +
+        (lista.length === 0
+          ? '<div class="empty" style="padding-top:8px;">El tutor de este curso aún no ha registrado estudiantes.</div>'
+          : '<div class="stu-meta" style="margin:4px 0 10px;">Lista registrada por el tutor del curso. Selecciona un estudiante para enviarle un mensaje.</div>' +
+            lista.map(e => `
+              <div class="card">
+                <div class="stu-name">${e.nombre}</div>
+                <div class="stu-meta">Tutor: ${e.tutorNombre || '—'}<br>Representante: ${e.representanteId ? e.representanteNombre : 'pendiente de vincular'}</div>
+                <div class="row-actions"><button class="btn btn-primary" style="flex:1" onclick="abrirMensaje('${e.id}')">Enviar mensaje</button></div>
+              </div>`).join('')));
 }
 
 function cambiarCursoDocente(docenteCursoId) {
@@ -1684,7 +1691,28 @@ async function guardarEstudiante() {
 }
 
 // ===================== enviar mensaje (docente y tutor) =====================
+
+let mensajeModoTutor = false;
+
+async function abrirMensajeTutor() {
+  if (!docenteCursoActivo) {
+    showToast('Selecciona un curso primero.');
+    return;
+  }
+  mensajeModoTutor = true;
+  mensajeEstudianteId = null;
+  mensajeTipo = 'info';
+  document.getElementById('mensajeDestino').textContent = 'Destino: Tutor del curso seleccionado';
+  document.getElementById('mensajeTexto').value = '';
+  document.getElementById('mensajeTexto').placeholder = 'Escribe el mensaje para el Tutor del curso...';
+  document.querySelectorAll('#tipoBar button').forEach(b => b.classList.remove('sel-alert','sel-sage','sel-info'));
+  const btn = document.querySelector('#tipoBar button[data-tipo="info"]');
+  if (btn) btn.classList.add('sel-info');
+  document.getElementById('ovMensaje').classList.remove('hidden');
+}
+
 async function abrirMensaje(estudianteId) {
+  mensajeModoTutor = false;
   mensajeEstudianteId = estudianteId;
   mensajeTipo = 'alert';
   document.getElementById('mensajeDestino').textContent = me.rol === 'tutor'
@@ -1705,7 +1733,22 @@ async function enviarMensaje() {
   const texto = document.getElementById('mensajeTexto').value.trim();
   if (!texto) { showToast('Escribe un mensaje antes de enviarlo.'); return; }
   try {
-    if (mensajeEstudianteId === '__TODOS__') {
+    if (mensajeModoTutor) {
+      // Docente → Tutor del curso activo
+      let mis = [];
+      try { mis = (await api('GET', '/api/docentes/' + me.id + '/cursos')).cursos || []; } catch (_) {}
+      const activa = mis.find(c => c.docenteCursoId === docenteCursoActivo);
+      if (!activa) { showToast('Selecciona un curso válido.'); return; }
+      await api('POST', '/api/docentes/mensajes-tutor', {
+        docenteId: me.id,
+        cursoId: activa.cursoId,
+        tipo: mensajeTipo,
+        texto: texto,
+      });
+      mensajeModoTutor = false;
+      closeOv('ovMensaje');
+      showToast('Mensaje enviado al Tutor del curso.');
+    } else if (mensajeEstudianteId === '__TODOS__') {
       const r = await api('POST', '/api/mensajes/curso', {
         remitenteId: me.id, tipo: mensajeTipo, texto,
       });
@@ -1723,6 +1766,7 @@ async function enviarMensaje() {
 }
 
 function abrirMensajeTodos() {
+  mensajeModoTutor = false;
   mensajeEstudianteId = '__TODOS__';
   mensajeTipo = 'alert';
   document.getElementById('mensajeDestino').textContent = 'Se enviará a TODOS los representantes vinculados de este curso';
