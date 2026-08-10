@@ -540,14 +540,10 @@
 <div class="overlay hidden" id="ovEditarEstudiante">
   <div class="sheet">
     <h3>Editar estudiante</h3>
-    <p class="helptext">Puedes corregir el nombre del estudiante y los datos del representante.</p>
+    <p class="helptext">Puedes corregir el nombre del estudiante. Los datos del representante se actualizan al vincularse.</p>
     <input type="hidden" id="editEstId">
     <label>Nombre del estudiante</label>
     <input type="text" id="editEstNombre" placeholder="Nombre completo">
-    <label>Nombre del representante</label>
-    <input type="text" id="editRepNombre" placeholder="Nombre del representante">
-    <label>Contacto del representante</label>
-    <input type="text" id="editRepContacto" placeholder="Correo o teléfono">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovEditarEstudiante')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionEstudiante()">Guardar</button>
@@ -571,12 +567,9 @@
   <div class="sheet">
     <h3>Registrar estudiante</h3>
     <div class="stu-meta" id="ovRegistrarSub"></div>
+    <p class="helptext">Solo el nombre del estudiante. Se generará un código para que el representante se vincule.</p>
     <label>Nombre del estudiante</label>
     <input type="text" id="regNombre" placeholder="Nombre y apellido">
-    <label>Nombre del representante</label>
-    <input type="text" id="regRepNombre" placeholder="Nombre del representante">
-    <label>Contacto del representante (correo o teléfono)</label>
-    <input type="text" id="regRepContacto" placeholder="Para enviarle el código de invitación">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovRegistrar')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEstudiante()">Guardar</button>
@@ -1121,10 +1114,12 @@ function renderPantallaRepresentante() {
       <input type="text" id="repClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
   } else {
     area.innerHTML = `
-      <div class="authsub">Ingresa el código de invitación que te compartió el Tutor para vincularte con tu hijo(a).</div>
+      <div class="authsub">Ingresa tus datos y el código de invitación que te compartió el Tutor.</div>
       <label>Tu nombre</label>
       <input type="text" id="repNombre2" placeholder="Nombre y apellido">
-      <label>Código de invitación</label>
+      <label>Celular</label>
+      <input type="tel" id="repCelular" placeholder="Ej: 0987654321" inputmode="numeric">
+      <label>Código de invitación del estudiante</label>
       <input type="text" id="repCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
   }
 }
@@ -2028,26 +2023,20 @@ async function abrirEditarEstudiante(estId) {
   if (!e) { showToast('Estudiante no encontrado.'); return; }
   document.getElementById('editEstId').value = e.id;
   document.getElementById('editEstNombre').value = e.nombre || '';
-  document.getElementById('editRepNombre').value = e.representanteNombre || e.representanteNombreSugerido || '';
-  document.getElementById('editRepContacto').value = e.representanteContacto || '';
   document.getElementById('ovEditarEstudiante').classList.remove('hidden');
 }
 
 async function guardarEdicionEstudiante() {
   const id = document.getElementById('editEstId').value;
   const nombre = (document.getElementById('editEstNombre').value || '').trim();
-  const representanteNombre = (document.getElementById('editRepNombre').value || '').trim();
-  const representanteContacto = (document.getElementById('editRepContacto').value || '').trim();
-  if (!nombre || !representanteNombre) {
-    showToast('Completa el nombre del estudiante y del representante.');
+  if (!nombre) {
+    showToast('Completa el nombre del estudiante.');
     return;
   }
   try {
     await api('PATCH', '/api/estudiantes/' + id, {
       tutorId: me.id,
       nombre: nombre,
-      representanteNombre: representanteNombre,
-      representanteContacto: representanteContacto,
     });
     closeOv('ovEditarEstudiante');
     showToast('Datos actualizados.');
@@ -2077,30 +2066,26 @@ function abrirRegistro() {
   regContext = { tutorId: me.id, cursoId: me.cursoId };
   document.getElementById('ovRegistrarSub').textContent = 'Se agrega a tu curso';
   document.getElementById('regNombre').value = '';
-  document.getElementById('regRepNombre').value = '';
-  document.getElementById('regRepContacto').value = '';
   document.getElementById('ovRegistrar').classList.remove('hidden');
 }
 function closeOv(id) { document.getElementById(id).classList.add('hidden'); }
 
 async function guardarEstudiante() {
   const nombre = document.getElementById('regNombre').value.trim();
-  const repNombre = document.getElementById('regRepNombre').value.trim();
-  const repContacto = document.getElementById('regRepContacto').value.trim();
-  if (!nombre || !repNombre) { showToast('Completa el nombre del estudiante y del representante.'); return; }
+  if (!nombre) { showToast('Ingresa el nombre del estudiante.'); return; }
   try {
     const r = await api('POST', '/api/estudiantes', {
       tutorId: regContext.tutorId, cursoId: regContext.cursoId, nombre,
-      representanteNombre: repNombre, representanteContacto: repContacto,
     });
     closeOv('ovRegistrar');
     document.getElementById('ovCodigoTitulo').textContent = nombre + ' — registrado';
-    document.getElementById('ovCodigoTexto').textContent = `Comparte este código con ${repNombre} (${repContacto || 'sin contacto registrado'}) para que se registre y se vincule desde la app:`;
+    document.getElementById('ovCodigoTexto').textContent = 'Comparte este código con el representante para que se vincule desde la app (él ingresará su nombre y celular):';
     document.getElementById('ovCodigoValor').textContent = r.estudiante.codigoInvitacion;
     document.getElementById('ovCodigo').classList.remove('hidden');
     render();
   } catch (e) { showToast(e.message); }
 }
+
 
 // ===================== enviar mensaje (docente y tutor) =====================
 
