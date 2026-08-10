@@ -481,6 +481,43 @@ def h_mensaje_a_curso(params, body):
 
 
 
+
+def h_mensaje_docente_a_tutor(params, body):
+    docente_id = body.get('docenteId')
+    curso_id = body.get('cursoId')
+    tipo = (body.get('tipo') or 'info').strip()
+    texto = (body.get('texto') or '').strip()
+    if not docente_id or not curso_id or not texto:
+        raise ApiError(400, 'Completa el mensaje y el curso.')
+    doc = row('SELECT * FROM usuarios WHERE id = ? AND rol = ?', (docente_id, 'docente'))
+    if not doc:
+        raise ApiError(403, 'Solo un docente puede enviar este mensaje.')
+    # Debe estar vinculado al curso
+    vinculo = row(
+        'SELECT * FROM docente_cursos WHERE docente_id = ? AND curso_id = ?',
+        (docente_id, curso_id),
+    )
+    if not vinculo:
+        raise ApiError(403, 'No estás vinculado a este curso.')
+    curso = row('SELECT * FROM cursos WHERE id = ?', (curso_id,))
+    if not curso:
+        raise ApiError(404, 'Curso no encontrado.')
+    tutor_id = curso['tutor_id']
+    if not tutor_id:
+        raise ApiError(400, 'Este curso no tiene tutor asignado.')
+    asignatura = vinculo.get('asignatura') or ''
+    texto_final = texto
+    if asignatura:
+        texto_final = f"[{asignatura}] {texto}"
+    mid = uid('mi')
+    fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    run(
+        "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+        (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
+    )
+    return 201, {'ok': True, 'mensajeId': mid}
+
+
 def h_crear_autoridad(params, body):
     nombre = (body.get('nombre') or '').strip()
     rol = (body.get('rol') or '').strip().lower()
@@ -648,6 +685,7 @@ ROUTES = [
     ('GET', r'^/api/usuarios/(?P<id>[^/]+)$', h_usuario_por_id),
 
     ('POST', r'^/api/mensajes$', h_crear_mensaje),
+    ('POST', r'^/api/docentes/mensajes-tutor$', h_mensaje_docente_a_tutor),
     ('POST', r'^/api/mensajes/curso$', h_mensaje_a_curso),
     ('PATCH', r'^/api/mensajes/(?P<id>[^/]+)/confirmar$', h_confirmar_mensaje),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
