@@ -615,7 +615,9 @@
 <div class="overlay hidden" id="ovVincular">
   <div class="sheet">
     <h3>Vincular a un estudiante</h3>
-    <p class="helptext">Ingresa el código de invitación de 6 caracteres que te compartió el tutor del curso.</p>
+    <p class="helptext">Ingresa tu celular y el código de invitación de 6 caracteres que te compartió el Tutor.</p>
+    <label>Celular</label>
+    <input type="tel" id="vincCelular" placeholder="Ej: 0987654321" inputmode="numeric">
     <label>Código de invitación</label>
     <input type="text" id="vincCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
     <div class="sheet-actions">
@@ -1142,10 +1144,11 @@ async function iniciarSesionRepresentante() {
 
 async function crearCuentaRepresentante() {
   const nombre = document.getElementById('repNombre2').value.trim();
+  const celular = ((document.getElementById('repCelular') || {}).value || '').trim();
   const codigo = document.getElementById('repCodigo').value.trim().toUpperCase();
-  if (!nombre || !codigo) { showToast('Completa tu nombre y el código de invitación.'); return; }
+  if (!nombre || !celular || !codigo) { showToast('Completa tu nombre, celular y el código de invitación.'); return; }
   try {
-    const r = await api('POST', '/api/representantes', { nombre, codigoInvitacion: codigo });
+    const r = await api('POST', '/api/representantes', { nombre, contacto: celular, codigoInvitacion: codigo });
     abrirClaveNueva({ usuarioId: r.usuarioId, nombre, rol: 'representante', clave: r.claveAcceso, mensajeExtra: 'Quedaste vinculado a ' + r.estudianteNombre + '.' });
   } catch (e) { showToast(e.message); }
 }
@@ -1889,7 +1892,7 @@ async function renderInicioTutor(screen) {
       : lista.map(e => {
           const repLabel = e.representanteId
             ? (e.representanteNombre || e.representanteNombreSugerido || 'vinculado')
-            : (e.representanteNombreSugerido || 'pendiente');
+            : 'pendiente de vincular';
           const safeName = String(e.nombre || '').replace(/\\/g,'\\').replace(/'/g, "\\'");
           return `
           <div class="card">
@@ -2214,10 +2217,14 @@ function abrirMensajeTodos() {
 // ===================== vincular representante adicional =====================
 async function vincularRepresentante() {
   const codigo = document.getElementById('vincCodigo').value.trim().toUpperCase();
+  const celular = ((document.getElementById('vincCelular') || {}).value || '').trim();
+  if (!codigo) { showToast('Ingresa el código de invitación.'); return; }
+  if (!celular) { showToast('Ingresa tu celular.'); return; }
   try {
-    const r = await api('POST', `/api/representantes/${me.id}/vincular`, { codigoInvitacion: codigo });
+    const r = await api('POST', `/api/representantes/${me.id}/vincular`, { codigoInvitacion: codigo, contacto: celular });
     closeOv('ovVincular');
     document.getElementById('vincCodigo').value = '';
+    if (document.getElementById('vincCelular')) document.getElementById('vincCelular').value = '';
     showToast('Vinculado a ' + r.estudianteNombre + '.');
     render();
   } catch (e) { showToast(e.message); }
