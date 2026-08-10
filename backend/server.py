@@ -321,11 +321,14 @@ def h_crear_mensaje(params, body):
         raise ApiError(400, 'Faltan datos del mensaje.')
     mid = uid('m')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    if remitente_rol not in ('tutor', 'docente', 'representante'):
+        raise ApiError(400, 'Rol de remitente no válido.')
     confirmado_tutor = 1 if remitente_rol == 'tutor' else 0
+    confirmado_rep = 1 if remitente_rol == 'representante' else 0
     run(
         '''INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante)
-           VALUES (?,?,?,?,?,?,?,?,0)''',
-        (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor),
+           VALUES (?,?,?,?,?,?,?,?,?)''',
+        (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep),
     )
     return 201, {'mensaje': ser_mensaje(row('SELECT * FROM mensajes WHERE id = ?', (mid,)))}
 
@@ -338,7 +341,8 @@ def h_confirmar_mensaje(params, body):
 
 def h_mensajes_tutor(params, body):
     lista = rows(
-        '''SELECT m.*, e.nombre as estudiante_nombre, u.nombre as remitente_nombre
+        '''SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto,
+                  u.nombre as remitente_nombre
            FROM mensajes m
            JOIN estudiantes e ON e.id = m.estudiante_id
            JOIN usuarios u ON u.id = m.remitente_id
@@ -350,6 +354,7 @@ def h_mensajes_tutor(params, body):
         d = ser_mensaje(m)
         d['estudianteNombre'] = m['estudiante_nombre']
         d['remitenteNombre'] = m['remitente_nombre']
+        d['remitenteContacto'] = m['rep_contacto'] if m.get('rep_contacto') else ''
         out.append(d)
     return 200, {'mensajes': out}
 
