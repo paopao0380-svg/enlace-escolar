@@ -442,6 +442,7 @@ def h_borrar_representante(params, body):
 
 
 def h_borrar_todo(params, body):
+    require_admin(body)
     for stmt in [
         'DELETE FROM mensajes_institucionales',
         'DELETE FROM mensajes',
@@ -545,6 +546,8 @@ def h_mensaje_docente_a_tutor(params, body):
 
 
 def h_crear_autoridad(params, body):
+    # Solo desde configuración (adminKey)
+    require_admin(body)
     nombre = (body.get('nombre') or '').strip()
     rol = (body.get('rol') or '').strip().lower()
     if rol not in ('rector', 'inspector'):
@@ -688,6 +691,111 @@ def h_salud(params, body):
     }
 
 
+
+ADMIN_KEY = 'LouPao0320.'
+
+
+def require_admin(body):
+    key = (body or {}).get('adminKey') or ''
+    if key != ADMIN_KEY:
+        raise ApiError(403, 'Clave de configuración incorrecta.')
+
+
+def h_admin_login(params, body):
+    require_admin(body)
+    return 200, {'ok': True}
+
+
+def h_admin_resumen(params, body):
+    require_admin(body)
+    tutores = []
+    for u in rows("SELECT * FROM usuarios WHERE rol = 'tutor' ORDER BY nombre"):
+        c = row('SELECT nombre, clave_curso FROM cursos WHERE tutor_id = ?', (u['id'],))
+        tutores.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'claveAcceso': u['clave_acceso'],
+            'cursoNombre': c['nombre'] if c else '',
+            'claveCurso': c['clave_curso'] if c else '',
+        })
+    docentes = []
+    for u in rows("SELECT * FROM usuarios WHERE rol = 'docente' ORDER BY nombre"):
+        cursos = rows(
+            "SELECT c.nombre AS nombre, dc.asignatura AS asignatura, c.clave_curso AS clave_curso "
+            "FROM docente_cursos dc JOIN cursos c ON c.id = dc.curso_id WHERE dc.docente_id = ?",
+            (u['id'],),
+        )
+        docentes.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'claveAcceso': u['clave_acceso'],
+            'cursos': [
+                {'nombre': x['nombre'], 'asignatura': x['asignatura'], 'claveCurso': x['clave_curso']}
+                for x in cursos
+            ],
+        })
+    representantes = []
+    for u in rows("SELECT * FROM usuarios WHERE rol = 'representante' ORDER BY nombre"):
+        hijos = rows(
+            "SELECT e.nombre AS nombre, e.representante_contacto AS contacto "
+            "FROM estudiantes e WHERE e.representante_id = ?",
+            (u['id'],),
+        )
+        representantes.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'claveAcceso': u['clave_acceso'],
+            'estudiantes': [{'nombre': h['nombre'], 'contacto': h['contacto'] or ''} for h in hijos],
+        })
+    autoridades = []
+    for u in rows("SELECT * FROM usuarios WHERE rol IN ('rector','inspector') ORDER BY rol, nombre"):
+        autoridades.append({
+            'id': u['id'],
+            'nombre': u['nombre'],
+            'rol': u['rol'],
+            'claveAcceso': u['clave_acceso'],
+        })
+    return 200, {
+        'tutores': tutores,
+        'docentes': docentes,
+        'representantes': representantes,
+        'autoridades': autoridades,
+    }
+
+
+def h_admin_crear_autoridad(params, body):
+    require_admin(body)
+    nombre = (body.get('nombre') or '').strip()
+    rol = (body.get('rol') or '').strip().lower()
+    if rol not in ('rector', 'inspector'):
+        raise ApiError(400, 'Rol inválido. Use rector o inspector.')
+    if not nombre:
+        raise ApiError(400, 'Ingresa el nombre de la autoridad.')
+    clave = codigo6()
+    aid = uid('aut')
+    run('INSERT INTO usuarios (id, nombre, rol, clave_acceso) VALUES (?,?,?,?)', (aid, nombre, rol, clave))
+    return 201, {'usuarioId': aid, 'claveAcceso': clave, 'rol': rol, 'nombre': nombre}
+
+
+def h_admin_borrar_todo(params, body):
+    require_admin(body)
+    for stmt in [
+        'DELETE FROM mensajes_institucionales',
+        'DELETE FROM mensajes',
+        'DELETE FROM dispositivos_push',
+        'DELETE FROM estudiantes',
+        'DELETE FROM docente_cursos',
+        'DELETE FROM cursos',
+        'DELETE FROM usuarios',
+    ]:
+        try:
+            execute_write(stmt)
+        except Exception:
+            run(stmt)
+    return 200, {'ok': True}
+
+
+
 # ---------- tabla de rutas ----------
 ROUTES = [
     ('POST', r'^/api/tutores$', h_crear_tutor),
@@ -735,6 +843,10 @@ ROUTES = [
     ('GET', r'^/api/usuarios/(?P<id>[^/]+)/mensajes-institucionales$', h_mensajes_institucionales_recibidos),
 
     ('POST', r'^/api/borrar-todo$', h_borrar_todo),
+    ('POST', r'^/api/admin/login$', h_admin_login),
+    ('POST', r'^/api/admin/resumen$', h_admin_resumen),
+    ('POST', r'^/api/admin/autoridades$', h_admin_crear_autoridad),
+    ('POST', r'^/api/admin/borrar-todo$', h_admin_borrar_todo),
     ('GET', r'^/api/salud$', h_salud),
 ]
 COMPILED_ROUTES = [(m, re.compile(p), h) for (m, p, h) in ROUTES]
