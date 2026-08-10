@@ -482,6 +482,25 @@ def h_mensaje_a_curso(params, body):
 
 
 
+
+def h_mensajes_docente_enviados_tutor(params, body):
+    """Mensajes que el docente envió al tutor (tabla institucional)."""
+    did = params['id']
+    lista = rows(
+        "SELECT * FROM mensajes_institucionales WHERE remitente_id = ? AND remitente_rol = 'docente' ORDER BY fecha DESC",
+        (did,),
+    )
+    out = []
+    for m in lista:
+        dest_nombre = ''
+        if m.get('destino_id'):
+            u = row('SELECT nombre FROM usuarios WHERE id = ?', (m['destino_id'],))
+            dest_nombre = u['nombre'] if u else ''
+        d = ser_msg_inst(m, None)
+        d['destinoNombre'] = dest_nombre
+        out.append(d)
+    return 200, {'mensajes': out}
+
 def h_mensaje_docente_a_tutor(params, body):
     docente_id = body.get('docenteId')
     curso_id = body.get('cursoId')
@@ -686,6 +705,7 @@ ROUTES = [
 
     ('POST', r'^/api/mensajes$', h_crear_mensaje),
     ('POST', r'^/api/docentes/mensajes-tutor$', h_mensaje_docente_a_tutor),
+    ('GET', r'^/api/docentes/(?P<id>[^/]+)/mensajes-tutor-enviados$', h_mensajes_docente_enviados_tutor),
     ('POST', r'^/api/mensajes/curso$', h_mensaje_a_curso),
     ('PATCH', r'^/api/mensajes/(?P<id>[^/]+)/confirmar$', h_confirmar_mensaje),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
