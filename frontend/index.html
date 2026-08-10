@@ -403,6 +403,22 @@
   .icon-action:active{opacity:0.85;}
   .icon-action.danger{color:var(--alert);border-color:#E3C6BE;background:var(--alert-bg);}
 
+
+  .msg-dest-name{
+    font-weight:800;
+    font-size:14.5px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--ink);
+    margin:6px 0 4px;
+    line-height:1.3;
+  }
+  .msg-dest-general{
+    font-weight:700;
+    font-size:13.5px;
+    margin:5px 0 3px;
+    color:var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -1266,21 +1282,21 @@ async function renderMensajesAutoridad(screen) {
   screen.innerHTML = '<div class="section-title">Enviados</div>' + lista.map(m => {
     const tipoTxt = tipoLabel(m.tipo || 'info');
     const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
-    const titulo = esEspecifico
-      ? String(m.destinoNombre).toUpperCase()
-      : destinoLabel(m.destinoTipo);
     const chip = m.destinoTipo === 'tutor' ? 'Tutor'
       : m.destinoTipo === 'docente' ? 'Docente'
       : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
       : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
       : 'Destino';
+    const tituloHtml = esEspecifico
+      ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
+      : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
     return `
       <div class="msg-card tipo-${m.tipo||'info'}">
         <div class="msg-head">
           <span class="msg-tipo">${tipoTxt}</span>
           <span class="msg-date">${fmtFecha(m.fecha)}</span>
         </div>
-        <div class="msg-stu">${escapeHtml(titulo)}</div>
+        ${tituloHtml}
         <div class="msg-text">${escapeHtml(m.texto)}</div>
         <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
       </div>`;
