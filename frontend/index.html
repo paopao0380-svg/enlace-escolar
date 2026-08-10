@@ -383,12 +383,62 @@
   .destino-opciones label.sel{border-color:var(--azul);background:rgba(43,90,160,0.08);}
   .destino-opciones input{accent-color:var(--azul);}
 
+
+  .btn-broadcast{
+    width:100%;border:none;cursor:pointer;font-family:inherit;
+    background:linear-gradient(135deg,#B8862F 0%,#9A6F24 100%);
+    color:#fff;font-weight:600;font-size:13.5px;
+    padding:12px 14px;border-radius:12px;
+    box-shadow:0 3px 10px rgba(184,134,47,0.28);
+  }
+  .btn-broadcast:active{opacity:0.92;transform:scale(0.99);}
+  .stu-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .stu-actions-mini{display:flex;gap:4px;flex-shrink:0;}
+  .icon-action{
+    border:1px solid var(--line);background:var(--paper);color:var(--muted);
+    width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:14px;
+    display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .icon-action:active{opacity:0.85;}
+  .icon-action.danger{color:var(--alert);border-color:#E3C6BE;background:var(--alert-bg);}
+
 </style>
 </head>
 <body>
 <div class="stage"><div class="phone">
   <div id="root"></div>
 </div></div>
+
+
+<div class="overlay hidden" id="ovEditarEstudiante">
+  <div class="sheet">
+    <h3>Editar estudiante</h3>
+    <p class="helptext">Puedes corregir el nombre del estudiante y los datos del representante.</p>
+    <input type="hidden" id="editEstId">
+    <label>Nombre del estudiante</label>
+    <input type="text" id="editEstNombre" placeholder="Nombre completo">
+    <label>Nombre del representante</label>
+    <input type="text" id="editRepNombre" placeholder="Nombre del representante">
+    <label>Contacto del representante</label>
+    <input type="text" id="editRepContacto" placeholder="Correo o teléfono">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovEditarEstudiante')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionEstudiante()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ovEliminarEstudiante">
+  <div class="sheet">
+    <h3>Eliminar estudiante</h3>
+    <p class="helptext" id="eliminarEstTexto">¿Seguro que deseas eliminar a este estudiante? Se borrarán también sus mensajes.</p>
+    <input type="hidden" id="eliminarEstId">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovEliminarEstudiante')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1;background:var(--alert);border-color:var(--alert);" onclick="eliminarEstudianteConfirmado()">Eliminar</button>
+    </div>
+  </div>
+</div>
 
 <div class="overlay hidden" id="ovRegistrar">
   <div class="sheet">
@@ -1274,7 +1324,7 @@ async function renderApp(root) {
         </div>
         <button type="button" class="btn-salir" onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
       </div>
-      ${me.rol === 'tutor' ? '<button class="linkbtn" style="color:rgba(255,255,255,0.75);margin-top:8px;" onclick="borrarMisDatos()">Borrar datos del curso</button>' : ''}
+      
     </div>
     <div class="tabbar" id="tabbar">
       ${tabs.map(t => `
@@ -1454,18 +1504,32 @@ async function renderInicioTutor(screen) {
     `<div class="stu-meta" style="margin-bottom:10px;">Clave del curso: <span class="tag" style="margin-top:0;">${c?.claveCurso || ''}</span></div>` +
     (conRep.length > 0
       ? `<div style="margin-bottom:14px;">
-          <button class="btn btn-primary btn-block" onclick="abrirMensajeTodos()">📢 Mensaje a todos los representantes (${conRep.length})</button>
+          <button type="button" class="btn-broadcast" onclick="abrirMensajeTodos()">📢 Mensaje a todos los representantes (${conRep.length})</button>
         </div>`
       : '') +
     (lista.length === 0
       ? '<div class="empty">Aún no registras estudiantes.<br>Usa el botón + para agregar el primero.</div>'
-      : lista.map(e => `
+      : lista.map(e => {
+          const repLabel = e.representanteId
+            ? (e.representanteNombre || e.representanteNombreSugerido || 'vinculado')
+            : (e.representanteNombreSugerido || 'pendiente');
+          const safeName = String(e.nombre || '').replace(/\\/g,'\\').replace(/'/g, "\\'");
+          return `
           <div class="card">
-            <div class="stu-name">${e.nombre}</div>
-            <div class="stu-meta">Representante: ${e.representanteId ? e.representanteNombre : 'pendiente'}</div>
-            ${e.representanteId ? '<span class="tag ok">vinculado</span>' : `<span class="tag pend">código: ${e.codigoInvitacion}</span>`}
+            <div class="stu-card-head">
+              <div style="min-width:0;flex:1;">
+                <div class="stu-name">${e.nombre}</div>
+                <div class="stu-meta">Representante: ${repLabel}</div>
+                ${e.representanteId ? '<span class="tag ok">vinculado</span>' : `<span class="tag pend">código: ${e.codigoInvitacion||''}</span>`}
+              </div>
+              <div class="stu-actions-mini">
+                <button type="button" class="icon-action" title="Editar" onclick="abrirEditarEstudiante('${e.id}')">✏️</button>
+                <button type="button" class="icon-action danger" title="Eliminar" onclick="confirmarEliminarEstudiante('${e.id}', '${safeName}')">🗑️</button>
+              </div>
+            </div>
             <div class="row-actions"><button class="btn btn-primary" style="flex:1" onclick="abrirMensaje('${e.id}')">Enviar mensaje</button></div>
-          </div>`).join(''));
+          </div>`;
+        }).join(''));
 }
 
 async function renderInicioRepresentante(screen) {
@@ -1533,6 +1597,61 @@ async function marcarLeido(mensajeId, campo) {
 }
 
 // ===================== registrar estudiante (tutor) =====================
+
+async function abrirEditarEstudiante(estId) {
+  let lista = [];
+  try {
+    lista = (await api('GET', '/api/cursos/' + me.cursoId + '/estudiantes')).estudiantes || [];
+  } catch (e) { showToast(e.message); return; }
+  const e = lista.find(x => x.id === estId);
+  if (!e) { showToast('Estudiante no encontrado.'); return; }
+  document.getElementById('editEstId').value = e.id;
+  document.getElementById('editEstNombre').value = e.nombre || '';
+  document.getElementById('editRepNombre').value = e.representanteNombre || e.representanteNombreSugerido || '';
+  document.getElementById('editRepContacto').value = e.representanteContacto || '';
+  document.getElementById('ovEditarEstudiante').classList.remove('hidden');
+}
+
+async function guardarEdicionEstudiante() {
+  const id = document.getElementById('editEstId').value;
+  const nombre = (document.getElementById('editEstNombre').value || '').trim();
+  const representanteNombre = (document.getElementById('editRepNombre').value || '').trim();
+  const representanteContacto = (document.getElementById('editRepContacto').value || '').trim();
+  if (!nombre || !representanteNombre) {
+    showToast('Completa el nombre del estudiante y del representante.');
+    return;
+  }
+  try {
+    await api('PATCH', '/api/estudiantes/' + id, {
+      tutorId: me.id,
+      nombre: nombre,
+      representanteNombre: representanteNombre,
+      representanteContacto: representanteContacto,
+    });
+    closeOv('ovEditarEstudiante');
+    showToast('Datos actualizados.');
+    render();
+  } catch (e) { showToast(e.message); }
+}
+
+function confirmarEliminarEstudiante(estId, nombre) {
+  document.getElementById('eliminarEstId').value = estId;
+  document.getElementById('eliminarEstTexto').textContent =
+    '¿Eliminar a ' + (nombre || 'este estudiante') + '? Se borrarán también sus mensajes. Esta acción no se puede deshacer.';
+  document.getElementById('ovEliminarEstudiante').classList.remove('hidden');
+}
+
+async function eliminarEstudianteConfirmado() {
+  const id = document.getElementById('eliminarEstId').value;
+  if (!id) return;
+  try {
+    await api('DELETE', '/api/estudiantes/' + id, { tutorId: me.id });
+    closeOv('ovEliminarEstudiante');
+    showToast('Estudiante eliminado.');
+    render();
+  } catch (e) { showToast(e.message); }
+}
+
 function abrirRegistro() {
   regContext = { tutorId: me.id, cursoId: me.cursoId };
   document.getElementById('ovRegistrarSub').textContent = 'Se agrega a tu curso';
