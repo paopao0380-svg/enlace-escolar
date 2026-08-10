@@ -376,7 +376,8 @@ def h_mensajes_docente(params, body):
 
 def h_mensajes_representante(params, body):
     lista = rows(
-        '''SELECT m.*, e.nombre as estudiante_nombre, u.nombre as remitente_nombre
+        '''SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto,
+                  u.nombre as remitente_nombre
            FROM mensajes m
            JOIN estudiantes e ON e.id = m.estudiante_id
            JOIN usuarios u ON u.id = m.remitente_id
@@ -388,6 +389,7 @@ def h_mensajes_representante(params, body):
         d = ser_mensaje(m)
         d['estudianteNombre'] = m['estudiante_nombre']
         d['remitenteNombre'] = m['remitente_nombre']
+        d['remitenteContacto'] = m['rep_contacto'] if m.get('rep_contacto') else ''
         out.append(d)
     return 200, {'mensajes': out}
 
