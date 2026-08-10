@@ -123,6 +123,7 @@
     background-size:150px 150px;
   }
   .authhero{
+    position:relative;
     background:linear-gradient(180deg,#1A3358 0%,#142844 100%);
     padding:18px 16px 16px;
     text-align:center;
@@ -482,6 +483,23 @@
   .cfg-danger h3{margin:0 0 6px;font-size:14px;color:var(--alert);}
   .cfg-danger p{margin:0 0 10px;font-size:12.5px;color:var(--muted);line-height:1.45;}
 
+
+  .cfg-gear-top{
+    position:absolute;top:12px;right:12px;z-index:5;
+    width:40px;height:40px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.45);
+    background:rgba(255,255,255,0.15);
+    color:#F5E6A8;font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;line-height:1;
+    box-shadow:0 2px 8px rgba(0,0,0,0.25);
+  }
+  .cfg-gear-top:active{background:rgba(255,255,255,0.28);}
+  .cfg-link-bottom{
+    display:block;width:100%;text-align:center;margin:10px 0 6px;
+    background:none;border:none;color:#4A5A6A;font-size:13px;font-weight:600;
+    cursor:pointer;text-decoration:underline;font-family:inherit;padding:8px;
+  }
 </style>
 </head>
 <body>
@@ -794,6 +812,7 @@ function renderAuth(root) {
   root.innerHTML = `
     <div class="authwrap">
       <div class="authhero">
+        <button type="button" class="cfg-gear-top" onclick="abrirConfigLogin()" title="Configuración" aria-label="Configuración">⚙️</button>
         <img class="crest-big" src="${LOGO_SRC}" alt="Escudo">
         <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
         <div class="appname">Enlace<span class="dot">·</span>Escolar</div>
@@ -813,30 +832,10 @@ function renderAuth(root) {
         <button type="button" class="rolecard-img rolecard-autoridades" onclick="mostrarRegistroAutoridad()">
           <img src="btn-autoridades.png" alt="Autoridades">
         </button>
+        <button type="button" class="cfg-link-bottom" onclick="abrirConfigLogin()">⚙️ Configuración</button>
       </div>
-    </div>
-`;
-  // Icono configuración fijo (fuera del scroll para que siempre se vea)
-  let fab = document.getElementById('cfgFabBtn');
-  if (!fab) {
-    fab = document.createElement('button');
-    fab.id = 'cfgFabBtn';
-    fab.type = 'button';
-    fab.className = 'cfg-fab';
-    fab.title = 'Configuración';
-    fab.setAttribute('aria-label', 'Configuración');
-    fab.textContent = '⚙️';
-    fab.onclick = function(){ abrirConfigLogin(); };
-    (document.querySelector('.phone') || document.body).appendChild(fab);
-  }
-  fab.style.display = 'flex';
+    </div>`;
 }
-
-function ocultarCfgFab() {
-  const fab = document.getElementById('cfgFabBtn');
-  if (fab) fab.style.display = 'none';
-}
-
 
 async function cerrarSesion() {
   session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null;
@@ -1467,7 +1466,6 @@ async function renderPanelConfig() {
     return;
   }
   const root = document.getElementById('root');
-  if (typeof ocultarCfgFab === 'function') ocultarCfgFab();
   root.innerHTML = '<div class="cfg-wrap"><div class="empty">Cargando configuración…</div></div>';
   let data = { tutores: [], docentes: [], representantes: [], autoridades: [] };
   try {
