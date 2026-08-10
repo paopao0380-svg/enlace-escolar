@@ -419,6 +419,69 @@
     margin:5px 0 3px;
     color:var(--ink);
   }
+
+  /* Configuración (encargado) */
+  .cfg-fab{
+    position:fixed !important;
+    right:16px !important;
+    bottom:22px !important;
+    z-index:80 !important;
+    width:48px !important;
+    height:48px !important;
+    border-radius:50% !important;
+    border:2px solid rgba(255,255,255,0.35) !important;
+    cursor:pointer !important;
+    background:linear-gradient(145deg,#1A2744 0%,#2F5F8F 100%) !important;
+    color:#F5E6A8 !important;
+    font-size:22px !important;
+    box-shadow:0 6px 20px rgba(26,39,68,0.45) !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    line-height:1 !important;
+    padding:0 !important;
+    margin:0 !important;
+  }
+  .cfg-fab:active{transform:scale(0.94);}
+  .cfg-wrap{padding:0 0 40px;min-height:100%;background:#F7F4EE;}
+  .cfg-head{
+    background:linear-gradient(135deg,#1A2744 0%,#2F5F8F 100%);
+    color:#fff;padding:18px 16px 16px;border-radius:0 0 18px 18px;
+    margin:0 0 14px;
+  }
+  .cfg-head h2{margin:0 0 4px;font-size:18px;font-weight:700;}
+  .cfg-head p{margin:0;font-size:12.5px;opacity:0.85;}
+  .cfg-section{
+    background:var(--paper);border:1px solid var(--line);
+    border-radius:14px;margin:0 12px 12px;overflow:hidden;
+  }
+  .cfg-section-h{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 14px;cursor:pointer;user-select:none;
+    background:#F7F4EE;
+  }
+  .cfg-section-h strong{font-size:14px;color:var(--ink);}
+  .cfg-section-h span{font-size:12px;color:var(--muted);}
+  .cfg-section-b{padding:8px 12px 12px;display:none;}
+  .cfg-section.open .cfg-section-b{display:block;}
+  .cfg-row{
+    padding:10px 10px;border:1px solid var(--line);border-radius:10px;
+    margin-bottom:8px;background:#fff;
+  }
+  .cfg-row .nm{font-weight:700;font-size:13.5px;color:var(--ink);}
+  .cfg-row .meta{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4;}
+  .cfg-key{
+    display:inline-block;margin-top:6px;padding:4px 10px;border-radius:8px;
+    background:#E8F0FA;color:#1E3A5C;font-weight:700;font-size:13px;
+    letter-spacing:0.06em;font-family:ui-monospace,monospace;
+  }
+  .cfg-danger{
+    margin:16px 12px;padding:14px;border-radius:14px;
+    border:1px solid #E3C6BE;background:#FDF6F4;
+  }
+  .cfg-danger h3{margin:0 0 6px;font-size:14px;color:var(--alert);}
+  .cfg-danger p{margin:0 0 10px;font-size:12.5px;color:var(--muted);line-height:1.45;}
+
 </style>
 </head>
 <body>
@@ -752,7 +815,26 @@ function renderAuth(root) {
         </button>
       </div>
     </div>
-    <button type="button" class="cfg-fab" title="Configuración" onclick="abrirConfigLogin()" aria-label="Configuración">⚙️</button>`;
+`;
+  // Icono configuración fijo (fuera del scroll para que siempre se vea)
+  let fab = document.getElementById('cfgFabBtn');
+  if (!fab) {
+    fab = document.createElement('button');
+    fab.id = 'cfgFabBtn';
+    fab.type = 'button';
+    fab.className = 'cfg-fab';
+    fab.title = 'Configuración';
+    fab.setAttribute('aria-label', 'Configuración');
+    fab.textContent = '⚙️';
+    fab.onclick = function(){ abrirConfigLogin(); };
+    (document.querySelector('.phone') || document.body).appendChild(fab);
+  }
+  fab.style.display = 'flex';
+}
+
+function ocultarCfgFab() {
+  const fab = document.getElementById('cfgFabBtn');
+  if (fab) fab.style.display = 'none';
 }
 
 
@@ -1385,6 +1467,7 @@ async function renderPanelConfig() {
     return;
   }
   const root = document.getElementById('root');
+  if (typeof ocultarCfgFab === 'function') ocultarCfgFab();
   root.innerHTML = '<div class="cfg-wrap"><div class="empty">Cargando configuración…</div></div>';
   let data = { tutores: [], docentes: [], representantes: [], autoridades: [] };
   try {
