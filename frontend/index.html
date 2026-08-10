@@ -386,10 +386,11 @@
 
   .btn-broadcast{
     width:100%;border:none;cursor:pointer;font-family:inherit;
-    background:linear-gradient(135deg,#B8862F 0%,#9A6F24 100%);
+    background:linear-gradient(135deg,#2F5F8F 0%,#1E3A5C 100%);
     color:#fff;font-weight:600;font-size:13.5px;
     padding:12px 14px;border-radius:12px;
-    box-shadow:0 3px 10px rgba(184,134,47,0.28);
+    box-shadow:0 3px 10px rgba(30,58,92,0.22);
+    border:1px solid rgba(255,255,255,0.12);
   }
   .btn-broadcast:active{opacity:0.92;transform:scale(0.99);}
   .stu-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
@@ -1520,6 +1521,7 @@ async function renderInicioTutor(screen) {
               <div style="min-width:0;flex:1;">
                 <div class="stu-name">${e.nombre}</div>
                 <div class="stu-meta">Representante: ${repLabel}</div>
+                ${e.representanteContacto ? `<div class="stu-meta">Celular / contacto: ${e.representanteContacto}</div>` : ''}
                 ${e.representanteId ? '<span class="tag ok">vinculado</span>' : `<span class="tag pend">código: ${e.codigoInvitacion||''}</span>`}
               </div>
               <div class="stu-actions-mini">
