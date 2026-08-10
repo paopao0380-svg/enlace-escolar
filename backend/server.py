@@ -58,6 +58,8 @@ def ser_estudiante(e):
     return {
         'id': e['id'], 'nombre': e['nombre'], 'cursoId': e['curso_id'], 'tutorId': e['tutor_id'],
         'representanteId': e['representante_id'], 'codigoInvitacion': e['codigo_invitacion'],
+        'representanteNombreSugerido': e.get('representante_nombre_sugerido') or '',
+        'representanteContacto': e.get('representante_contacto') or '',
     }
 
 
@@ -139,6 +141,50 @@ def h_estudiantes_de_curso(params, body):
         d['representanteNombre'] = e['representante_nombre']
         out.append(d)
     return 200, {'estudiantes': out}
+
+
+
+def h_editar_estudiante(params, body):
+    eid = params['id']
+    est = row('SELECT * FROM estudiantes WHERE id = ?', (eid,))
+    if not est:
+        raise ApiError(404, 'Estudiante no encontrado.')
+    tutor_id = body.get('tutorId')
+    if not tutor_id or est['tutor_id'] != tutor_id:
+        raise ApiError(403, 'Solo el Tutor de este curso puede editar al estudiante.')
+    nombre = (body.get('nombre') or '').strip()
+    rep_nombre = (body.get('representanteNombre') or '').strip()
+    rep_contacto = (body.get('representanteContacto') or '').strip()
+    if not nombre:
+        raise ApiError(400, 'El nombre del estudiante es obligatorio.')
+    if not rep_nombre:
+        raise ApiError(400, 'El nombre del representante es obligatorio.')
+    run(
+        "UPDATE estudiantes SET nombre = ?, representante_nombre_sugerido = ?, representante_contacto = ? WHERE id = ?",
+        (nombre, rep_nombre, rep_contacto, eid),
+    )
+    if est['representante_id'] and rep_nombre:
+        run("UPDATE usuarios SET nombre = ? WHERE id = ? AND rol = ?",
+            (rep_nombre, est['representante_id'], 'representante'))
+    est2 = row('SELECT * FROM estudiantes WHERE id = ?', (eid,))
+    d = ser_estudiante(est2)
+    d['representanteNombreSugerido'] = est2.get('representante_nombre_sugerido')
+    d['representanteContacto'] = est2.get('representante_contacto')
+    return 200, {'estudiante': d}
+
+
+def h_borrar_estudiante(params, body):
+    eid = params['id']
+    est = row('SELECT * FROM estudiantes WHERE id = ?', (eid,))
+    if not est:
+        raise ApiError(404, 'Estudiante no encontrado.')
+    body = body or {}
+    tutor_id = body.get('tutorId')
+    if not tutor_id or est['tutor_id'] != tutor_id:
+        raise ApiError(403, 'Solo el Tutor de este curso puede eliminar al estudiante.')
+    run('DELETE FROM mensajes WHERE estudiante_id = ?', (eid,))
+    run('DELETE FROM estudiantes WHERE id = ?', (eid,))
+    return 200, {'ok': True, 'eliminado': eid}
 
 
 def h_crear_docente(params, body):
@@ -577,6 +623,8 @@ ROUTES = [
     ('DELETE', r'^/api/tutores/(?P<id>[^/]+)$', h_borrar_tutor),
 
     ('POST', r'^/api/estudiantes$', h_crear_estudiante),
+    ('PATCH', r'^/api/estudiantes/(?P<id>[^/]+)$', h_editar_estudiante),
+    ('DELETE', r'^/api/estudiantes/(?P<id>[^/]+)$', h_borrar_estudiante),
 
     ('GET', r'^/api/cursos/(?P<id>[^/]+)$', h_curso_por_id),
     ('GET', r'^/api/cursos/(?P<cursoId>[^/]+)/estudiantes$', h_estudiantes_de_curso),
