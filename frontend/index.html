@@ -1553,11 +1553,17 @@ async function renderInicioRepresentante(screen) {
   screen.innerHTML = `<div class="section-title">Estudiante(s) representado(s)</div>` +
     (lista.length === 0
       ? '<div class="empty">Aún no te has vinculado a ningún estudiante.<br>Usa el botón 🔗 e ingresa el código que te dio el tutor.</div>'
-      : lista.map(e => `
+      : lista.map(e => {
+          const tName = String(e.tutorNombre || 'Tutor').replace(/'/g, "\\'");
+          return `
           <div class="card">
             <div class="stu-name">${e.nombre}</div>
             <div class="stu-meta">Tutor: ${e.tutorNombre || '—'}</div>
-          </div>`).join(''));
+            <div class="row-actions" style="margin-top:10px;">
+              <button type="button" class="btn-broadcast" style="flex:1;" onclick="abrirMensajeAlTutorDesdeRep('${e.id}', '${tName}')">📢 Enviar mensaje al Tutor</button>
+            </div>
+          </div>`;
+        }).join(''));
 }
 
 function renderMensajes(screen, lista, mensajesInst) {
@@ -1613,7 +1619,7 @@ function renderMensajes(screen, lista, mensajesInst) {
           <div class="msg-stu">${m.estudianteNombre || '—'}</div>
           <div class="msg-text">${m.texto}</div>
           <div class="msg-chain">
-            <span class="chip">${m.remitenteRol === 'tutor' ? 'Tutor' : 'Docente'}: ${m.remitenteNombre || '—'}</span>
+            <span class="chip">${m.remitenteRol === 'tutor' ? 'Tutor' : m.remitenteRol === 'representante' ? 'Representante' : 'Docente'}: ${m.remitenteNombre || '—'}${m.remitenteRol === 'representante' && m.remitenteContacto ? ' · ' + m.remitenteContacto : ''}</span>
             ${m.remitenteRol === 'docente' ? `<span class="chip">${m.confirmadoTutor ? '✓' : '…'} Tutor</span>` : ''}
             <span class="chip">${m.confirmadoRepresentante ? '✓' : '…'} Representante</span>
           </div>
@@ -1734,6 +1740,20 @@ async function abrirMensajeTutor() {
   document.getElementById('ovMensaje').classList.remove('hidden');
 }
 
+
+function abrirMensajeAlTutorDesdeRep(estudianteId, tutorNombre) {
+  mensajeModoTutor = false;
+  mensajeEstudianteId = estudianteId;
+  mensajeTipo = 'info';
+  document.getElementById('mensajeDestino').textContent = 'Para el Tutor' + (tutorNombre ? ': ' + tutorNombre : '') + ' (sobre este estudiante)';
+  document.getElementById('mensajeTexto').value = '';
+  document.getElementById('mensajeTexto').placeholder = 'Escribe el mensaje para el Tutor...';
+  document.querySelectorAll('#tipoBar button').forEach(b => b.classList.remove('sel-alert','sel-sage','sel-info'));
+  const btn = document.querySelector('#tipoBar button[data-tipo="info"]');
+  if (btn) btn.classList.add('sel-info');
+  document.getElementById('ovMensaje').classList.remove('hidden');
+}
+
 async function abrirMensaje(estudianteId) {
   mensajeModoTutor = false;
   mensajeEstudianteId = estudianteId;
@@ -1782,7 +1802,7 @@ async function enviarMensaje() {
         estudianteId: mensajeEstudianteId, remitenteId: me.id, remitenteRol: me.rol, tipo: mensajeTipo, texto,
       });
       closeOv('ovMensaje');
-      showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : 'Mensaje entregado al tutor y al representante.');
+      showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : 'Mensaje entregado al tutor y al representante.');
     }
     render();
   } catch (e) { showToast(e.message); }
