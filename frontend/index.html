@@ -118,7 +118,7 @@
   .authwrap{
     padding:0 0 32px;
     min-height:100%;
-    background-color:#F5EDD8;
+    background-color:#F4E8D2;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Cg fill='none' stroke='%23C9B896' stroke-width='1.3' opacity='0.35'%3E%3Cpath d='M14 22h20v14H14z'/%3E%3Cpath d='M16 22v-4h16v4'/%3E%3Ccircle cx='110' cy='28' r='11'/%3E%3Cpath d='M110 17v-6M110 39v6M99 28h-6M121 28h6'/%3E%3Cpath d='M20 88l9-14 9 14z'/%3E%3Cpath d='M85 85h24v20H85z'/%3E%3Cpath d='M89 85v-6h16v6'/%3E%3Cpath d='M12 122h16M20 122v-9'/%3E%3Cpath d='M118 112l7-12 7 12z'/%3E%3Cpath d='M50 50l4-7 4 7z'/%3E%3Cpath d='M65 18h12M71 18v9'/%3E%3C/g%3E%3C/svg%3E");
     background-size:150px 150px;
   }
@@ -187,8 +187,8 @@
     .user-name{font-size:13px;}
     .user-role{font-size:11px;}
     .tabbar button{font-size:12px;}
-    .authtitle{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:#1A2744;text-align:center;letter-spacing:-0.3px;margin:4px 0 8px;}
-    .authsub{font-size:13.5px;line-height:1.5;color:#5A554C;text-align:center;margin:0 auto 16px;font-weight:500;max-width:300px;}
+    .authtitle{font-family:'Fraunces',serif;font-size:26px;font-weight:600;color:#1A2744;text-align:center;letter-spacing:-0.3px;margin:8px 0 10px;}
+    .authsub{font-size:13.5px;line-height:1.5;color:#5A554C;text-align:center;margin:0 auto 18px;font-weight:500;max-width:300px;}
     .helptext{font-size:12.5px;}
     .rolecard{min-height:100px;padding:14px 14px;}
     .rolecard .illus{width:92px;min-width:92px;height:78px;}
@@ -294,25 +294,24 @@
     width:100% !important;
     max-width:100% !important;
     padding:0 !important;
-    margin:0 0 11px 0 !important;
+    margin:0 0 13px 0 !important;
     border:none !important;
     outline:none !important;
     background:transparent !important;
     cursor:pointer;
-    border-radius:0 !important;
-    overflow:visible !important;
-    box-shadow:none !important;
+    border-radius:24px;
+    overflow:hidden;
+    box-shadow:
+      0 8px 20px rgba(26, 39, 68, 0.11),
+      0 2px 6px rgba(26, 39, 68, 0.06);
     line-height:0 !important;
     -webkit-tap-highlight-color:transparent;
-    transition:transform 0.12s ease;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .rolecard-img:active{transform:scale(0.985);}
-  .rolecard-img:active{transform:scale(0.98);filter:brightness(0.97);}
-  .rolecard-img:active{transform:scale(0.98);opacity:0.95;}
-  .rolecard-img + .rolecard-img{margin-top:12px;}
-  .rolecard-img.rolecard-autoridades{margin-top:14px;}
-  .rolecard-img.rolecard-autoridades{margin-top:6px;}
-  .roles-stack{display:flex;flex-direction:column;gap:12px;}
+  .rolecard-img:active{
+    transform:scale(0.985);
+    box-shadow:0 3px 10px rgba(26, 39, 68, 0.12);
+  }
   .rolecard-img img{
     width:100% !important;
     height:auto !important;
@@ -320,9 +319,9 @@
     border:none !important;
     outline:none !important;
     vertical-align:top;
-    image-rendering:auto;
-    -webkit-backface-visibility:hidden;
   }
+  .roles-gap{height:2px;}
+
   .authbody{padding:18px 16px 28px !important;}
 
   .curso-fila{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
