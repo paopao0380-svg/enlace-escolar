@@ -500,6 +500,36 @@
     background:none;border:none;color:#4A5A6A;font-size:13px;font-weight:600;
     cursor:pointer;text-decoration:underline;font-family:inherit;padding:8px;
   }
+
+  .cfg-fab-wrap{
+    display:flex;
+    justify-content:flex-end;
+    padding:6px 2px 18px;
+    margin-top:4px;
+  }
+  .cfg-gear-subtle{
+    width:38px;height:38px;border-radius:50%;
+    border:1px solid rgba(90,80,60,0.18);
+    background:rgba(90,80,60,0.07);
+    color:#8A7E6C;
+    font-size:16px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    padding:0;line-height:1;
+    box-shadow:none;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .cfg-gear-subtle:active{
+    background:rgba(90,80,60,0.14);
+    color:#5C5346;
+  }
+  .cfg-del-btn{
+    margin-top:8px;border:1px solid #E3C6BE;background:#FDF6F4;
+    color:var(--alert);font-size:12px;font-weight:600;
+    border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit;
+  }
+  .cfg-del-btn:active{opacity:0.85;}
+
 </style>
 </head>
 <body>
@@ -812,7 +842,6 @@ function renderAuth(root) {
   root.innerHTML = `
     <div class="authwrap">
       <div class="authhero">
-        <button type="button" class="cfg-gear-top" onclick="abrirConfigLogin()" title="Configuración" aria-label="Configuración">⚙️</button>
         <img class="crest-big" src="${LOGO_SRC}" alt="Escudo">
         <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
         <div class="appname">Enlace<span class="dot">·</span>Escolar</div>
@@ -832,7 +861,9 @@ function renderAuth(root) {
         <button type="button" class="rolecard-img rolecard-autoridades" onclick="mostrarRegistroAutoridad()">
           <img src="btn-autoridades.png" alt="Autoridades">
         </button>
-        <button type="button" class="cfg-link-bottom" onclick="abrirConfigLogin()">⚙️ Configuración</button>
+        <div class="cfg-fab-wrap">
+          <button type="button" class="cfg-gear-subtle" onclick="abrirConfigLogin()" title="Configuración" aria-label="Configuración">⚙️</button>
+        </div>
       </div>
     </div>`;
 }
@@ -1491,14 +1522,17 @@ async function renderPanelConfig() {
       <div class="nm">${escapeHtml(t.nombre)}</div>
       <div class="meta">Curso: ${escapeHtml(t.cursoNombre || '—')}${t.claveCurso ? ' · Clave curso: ' + escapeHtml(t.claveCurso) : ''}</div>
       <span class="cfg-key">${escapeHtml(t.claveAcceso || '')}</span>
+      <div><button type="button" class="cfg-del-btn" onclick="adminEliminarUsuario('${t.id}','tutor','${String(t.nombre||'').replace(/'/g,"\\'")}')">Eliminar tutor</button></div>
     </div>`).join('');
 
   const docentesHtml = (data.docentes || []).map(d => {
     const cursos = (d.cursos || []).map(c => escapeHtml(c.nombre) + ' — ' + escapeHtml(c.asignatura)).join('<br>') || 'Sin cursos';
+    const safe = String(d.nombre||'').replace(/'/g, "\\'");
     return `<div class="cfg-row">
       <div class="nm">${escapeHtml(d.nombre)}</div>
       <div class="meta">${cursos}</div>
       <span class="cfg-key">${escapeHtml(d.claveAcceso || '')}</span>
+      <div><button type="button" class="cfg-del-btn" onclick="adminEliminarUsuario('${d.id}','docente','${safe}')">Eliminar docente</button></div>
     </div>`;
   }).join('');
 
@@ -1564,6 +1598,21 @@ async function confirmarFormatearApp() {
     guardarSesionLocal();
     showToast('Todos los datos fueron eliminados. App lista para un nuevo año.');
     render();
+  } catch (e) { showToast(e.message); }
+}
+
+
+async function adminEliminarUsuario(id, rol, nombre) {
+  const etiqueta = rol === 'tutor' ? 'Tutor' : 'Docente';
+  if (!confirm('¿Eliminar a ' + (nombre || etiqueta) + ' (' + etiqueta + ')?\nSe borrarán sus datos relacionados.')) return;
+  try {
+    await api('POST', '/api/admin/borrar-usuario', {
+      adminKey: adminKeySession,
+      id: id,
+      rol: rol,
+    });
+    showToast(etiqueta + ' eliminado.');
+    await renderPanelConfig();
   } catch (e) { showToast(e.message); }
 }
 
