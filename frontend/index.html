@@ -1294,6 +1294,9 @@ async function renderApp(root) {
     if (me.rol === 'docente') {
       mensajesList = (await api('GET', `/api/docentes/${me.id}/mensajes`)).mensajes;
       mensajesInst = (await api('GET', `/api/usuarios/${me.id}/mensajes-institucionales`)).mensajes || [];
+      try {
+        window._mensajesDocenteATutor = (await api('GET', `/api/docentes/${me.id}/mensajes-tutor-enviados`)).mensajes || [];
+      } catch (_) { window._mensajesDocenteATutor = []; }
     } else if (me.rol === 'tutor') {
       mensajesList = (await api('GET', `/api/tutores/${me.id}/mensajes`)).mensajes;
       mensajesInst = (await api('GET', `/api/usuarios/${me.id}/mensajes-institucionales`)).mensajes || [];
@@ -1562,8 +1565,12 @@ function renderMensajes(screen, lista, mensajesInst) {
   const campo = me.rol === 'tutor' ? 'confirmadoTutor' : me.rol === 'representante' ? 'confirmadoRepresentante' : null;
   const ordenada = lista.slice().reverse();
   const bloqueInst = (me.rol === 'tutor' || me.rol === 'docente') && mensajesInst.length
-    ? `<div class="section-title">Comunicados institucionales</div>` + mensajesInst.map(m => {
-        const rolAut = m.remitenteRol === 'rector' ? 'Rector' : m.remitenteRol === 'inspector' ? 'Inspector' : 'Autoridad';
+    ? `<div class="section-title">${me.rol === 'tutor' ? 'Comunicados y mensajes del equipo' : 'Comunicados institucionales'}</div>` + mensajesInst.map(m => {
+        const rolAut = m.remitenteRol === 'rector' ? 'Rector'
+          : m.remitenteRol === 'inspector' ? 'Inspector'
+          : m.remitenteRol === 'docente' ? 'Docente'
+          : m.remitenteRol === 'tutor' ? 'Tutor'
+          : 'Autoridad';
         const tipoTxt = tipoLabel(m.tipo || 'info');
         return `
         <div class="msg-card tipo-${m.tipo||'info'}">
@@ -1580,7 +1587,23 @@ function renderMensajes(screen, lista, mensajesInst) {
       }).join('')
     : '';
 
-  screen.innerHTML = bloqueInst + `<div class="section-title">${me.rol === 'docente' ? 'Mensajes enviados' : 'Mensajes recibidos'}</div>` +
+    const enviadosTutor = (me.rol === 'docente' && window._mensajesDocenteATutor && window._mensajesDocenteATutor.length)
+    ? `<div class="section-title">Mensajes al Tutor</div>` + window._mensajesDocenteATutor.map(m => {
+        const tipoTxt = tipoLabel(m.tipo || 'info');
+        return `
+        <div class="msg-card tipo-${m.tipo||'info'}">
+          <div class="msg-head">
+            <span class="msg-tipo">${tipoTxt}</span>
+            <span class="msg-date">${fmtFecha(m.fecha)}</span>
+          </div>
+          <div class="msg-stu">Para: ${escapeHtml(m.destinoNombre || 'Tutor')}</div>
+          <div class="msg-text">${escapeHtml(m.texto)}</div>
+          <div class="msg-chain"><span class="chip">Docente → Tutor</span></div>
+        </div>`;
+      }).join('')
+    : '';
+
+  screen.innerHTML = bloqueInst + enviadosTutor + `<div class="section-title">${me.rol === 'docente' ? 'Mensajes a representantes' : 'Mensajes recibidos'}</div>` +
     (ordenada.length === 0 ? '<div class="empty">No hay mensajes todavía.</div>' :
       ordenada.map(m => {
         const sinLeer = campo && !m[campo];
