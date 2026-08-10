@@ -1254,7 +1254,7 @@ async function enviarMensajeInstitucional() {
   } catch (e) { showToast(e.message); }
 }
 
-async async function renderMensajesAutoridad(screen) {
+async function renderMensajesAutoridad(screen) {
   let lista = [];
   try {
     lista = (await api('GET', '/api/autoridades/' + me.id + '/mensajes')).mensajes || [];
