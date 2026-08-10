@@ -86,7 +86,7 @@
   .msg-tipo{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.03em;}
   .tipo-alert .msg-tipo{color:var(--alert);} .tipo-sage .msg-tipo{color:var(--sage);} .tipo-info .msg-tipo{color:var(--info);}
   .msg-date{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
-  .msg-stu{font-weight:600;font-size:13.5px;margin:5px 0 3px;}
+  .msg-stu{font-weight:700;letter-spacing:0.02em;font-size:13.5px;margin:5px 0 3px;color:var(--ink);}
   .msg-text{font-size:13px;line-height:1.5;color:var(--ink);}
   .msg-chain{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;}
   .chip{font-size:10px;font-family:'IBM Plex Mono',monospace;background:rgba(255,255,255,0.6);padding:2px 6px;border-radius:5px;color:var(--ink);}
@@ -182,7 +182,7 @@
     .btn{font-size:14px;padding:9px 12px;}
     .btn-block{font-size:15px;padding:13px;}
     .msg-text{font-size:14.5px;}
-    .msg-stu{font-size:15px;}
+    .msg-stu{font-weight:700;letter-spacing:0.01em;font-size:15px;}
     .msg-tipo{font-size:12px;}
     .user-name{font-size:13px;}
     .user-role{font-size:11px;}
@@ -1254,7 +1254,7 @@ async function enviarMensajeInstitucional() {
   } catch (e) { showToast(e.message); }
 }
 
-async function renderMensajesAutoridad(screen) {
+async async function renderMensajesAutoridad(screen) {
   let lista = [];
   try {
     lista = (await api('GET', '/api/autoridades/' + me.id + '/mensajes')).mensajes || [];
@@ -1265,12 +1265,25 @@ async function renderMensajesAutoridad(screen) {
   }
   screen.innerHTML = '<div class="section-title">Enviados</div>' + lista.map(m => {
     const tipoTxt = tipoLabel(m.tipo || 'info');
-    return '<div class="msg-card tipo-'+(m.tipo||'info')+'">'
-      + '<div class="msg-head"><span class="msg-tipo">'+tipoTxt+'</span>'
-      + '<span class="msg-date">'+fmtFecha(m.fecha)+'</span></div>'
-      + '<div class="msg-stu">'+escapeHtml(destinoLabel(m.destinoTipo))+'</div>'
-      + '<div class="msg-text">'+escapeHtml(m.texto)+'</div>'
-      + '</div>';
+    const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
+    const titulo = esEspecifico
+      ? String(m.destinoNombre).toUpperCase()
+      : destinoLabel(m.destinoTipo);
+    const chip = m.destinoTipo === 'tutor' ? 'Tutor'
+      : m.destinoTipo === 'docente' ? 'Docente'
+      : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
+      : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
+      : 'Destino';
+    return `
+      <div class="msg-card tipo-${m.tipo||'info'}">
+        <div class="msg-head">
+          <span class="msg-tipo">${tipoTxt}</span>
+          <span class="msg-date">${fmtFecha(m.fecha)}</span>
+        </div>
+        <div class="msg-stu">${escapeHtml(titulo)}</div>
+        <div class="msg-text">${escapeHtml(m.texto)}</div>
+        <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
+      </div>`;
   }).join('');
 }
 
