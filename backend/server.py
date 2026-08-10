@@ -104,16 +104,13 @@ def h_crear_estudiante(params, body):
     tutor_id = body.get('tutorId')
     curso_id = body.get('cursoId')
     nombre = (body.get('nombre') or '').strip()
-    rep_nombre = (body.get('representanteNombre') or '').strip()
-    rep_contacto = (body.get('representanteContacto') or '').strip()
-    if not tutor_id or not curso_id or not nombre or not rep_nombre:
-        raise ApiError(400, 'Completa el nombre del estudiante y del representante.')
+    if not tutor_id or not curso_id or not nombre:
+        raise ApiError(400, 'Ingresa el nombre del estudiante.')
     eid = uid('e')
     codigo = codigo6()
     run(
-        '''INSERT INTO estudiantes (id, nombre, curso_id, tutor_id, representante_id, representante_nombre_sugerido, representante_contacto, codigo_invitacion)
-           VALUES (?,?,?,?,NULL,?,?,?)''',
-        (eid, nombre, curso_id, tutor_id, rep_nombre, rep_contacto, codigo),
+        "INSERT INTO estudiantes (id, nombre, curso_id, tutor_id, representante_id, representante_nombre_sugerido, representante_contacto, codigo_invitacion) VALUES (?,?,?,?,NULL,'','',?)",
+        (eid, nombre, curso_id, tutor_id, codigo),
     )
     return 201, {'estudiante': ser_estudiante(row('SELECT * FROM estudiantes WHERE id = ?', (eid,)))}
 
@@ -153,23 +150,12 @@ def h_editar_estudiante(params, body):
     if not tutor_id or est['tutor_id'] != tutor_id:
         raise ApiError(403, 'Solo el Tutor de este curso puede editar al estudiante.')
     nombre = (body.get('nombre') or '').strip()
-    rep_nombre = (body.get('representanteNombre') or '').strip()
-    rep_contacto = (body.get('representanteContacto') or '').strip()
     if not nombre:
         raise ApiError(400, 'El nombre del estudiante es obligatorio.')
-    if not rep_nombre:
-        raise ApiError(400, 'El nombre del representante es obligatorio.')
-    run(
-        "UPDATE estudiantes SET nombre = ?, representante_nombre_sugerido = ?, representante_contacto = ? WHERE id = ?",
-        (nombre, rep_nombre, rep_contacto, eid),
-    )
-    if est['representante_id'] and rep_nombre:
-        run("UPDATE usuarios SET nombre = ? WHERE id = ? AND rol = ?",
-            (rep_nombre, est['representante_id'], 'representante'))
+    run("UPDATE estudiantes SET nombre = ? WHERE id = ?", (nombre, eid))
     est2 = row('SELECT * FROM estudiantes WHERE id = ?', (eid,))
     d = ser_estudiante(est2)
-    d['representanteNombreSugerido'] = est2.get('representante_nombre_sugerido')
-    d['representanteContacto'] = est2.get('representante_contacto')
+    d['representanteContacto'] = est2.get('representante_contacto') or ''
     return 200, {'estudiante': d}
 
 
@@ -260,15 +246,19 @@ def h_quitar_curso_docente(params, body):
 def h_crear_representante(params, body):
     nombre = (body.get('nombre') or '').strip()
     codigo = (body.get('codigoInvitacion') or '').strip().upper()
-    if not nombre or not codigo:
-        raise ApiError(400, 'Completa tu nombre y el código de invitación.')
+    contacto = (body.get('contacto') or body.get('celular') or '').strip()
+    if not nombre or not codigo or not contacto:
+        raise ApiError(400, 'Completa tu nombre, celular y el código de invitación.')
     est = row('SELECT * FROM estudiantes WHERE codigo_invitacion = ? AND representante_id IS NULL', (codigo,))
     if not est:
         raise ApiError(404, 'Código inválido o ya utilizado.')
     rep_id = uid('u')
     clave_acceso = codigo6()
     run('INSERT INTO usuarios (id, nombre, rol, clave_acceso) VALUES (?,?,?,?)', (rep_id, nombre, 'representante', clave_acceso))
-    run('UPDATE estudiantes SET representante_id = ? WHERE id = ?', (rep_id, est['id']))
+    run(
+        'UPDATE estudiantes SET representante_id = ?, representante_nombre_sugerido = ?, representante_contacto = ? WHERE id = ?',
+        (rep_id, nombre, contacto, est['id']),
+    )
     return 201, {'usuarioId': rep_id, 'claveAcceso': clave_acceso, 'estudianteNombre': est['nombre']}
 
 
@@ -282,10 +272,16 @@ def h_login_representante(params, body):
 
 def h_vincular_representante(params, body):
     codigo = (body.get('codigoInvitacion') or '').strip().upper()
+    contacto = (body.get('contacto') or body.get('celular') or '').strip()
     est = row('SELECT * FROM estudiantes WHERE codigo_invitacion = ? AND representante_id IS NULL', (codigo,))
     if not est:
         raise ApiError(404, 'Código inválido o ya utilizado.')
-    run('UPDATE estudiantes SET representante_id = ? WHERE id = ?', (params['id'], est['id']))
+    u = row('SELECT * FROM usuarios WHERE id = ?', (params['id'],))
+    nombre = (u['nombre'] if u else '') or ''
+    run(
+        'UPDATE estudiantes SET representante_id = ?, representante_nombre_sugerido = ?, representante_contacto = ? WHERE id = ?',
+        (params['id'], nombre, contacto, est['id']),
+    )
     return 200, {'estudianteNombre': est['nombre']}
 
 
