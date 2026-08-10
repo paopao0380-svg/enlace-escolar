@@ -641,7 +641,16 @@ def h_mensajes_enviados_autoridad(params, body):
         'SELECT * FROM mensajes_institucionales WHERE remitente_id = ? ORDER BY fecha DESC',
         (aid,),
     )
-    return 200, {'mensajes': [ser_msg_inst(m) for m in lista]}
+    out = []
+    for m in lista:
+        d = ser_msg_inst(m)
+        dest_nombre = ''
+        if m.get('destino_id') and m.get('destino_tipo') in ('tutor', 'docente'):
+            u = row('SELECT nombre FROM usuarios WHERE id = ?', (m['destino_id'],))
+            dest_nombre = u['nombre'] if u else ''
+        d['destinoNombre'] = dest_nombre
+        out.append(d)
+    return 200, {'mensajes': out}
 
 
 def h_mensajes_institucionales_recibidos(params, body):
