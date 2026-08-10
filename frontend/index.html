@@ -580,6 +580,62 @@
   </div>
 </div>
 
+
+<div class="overlay hidden" id="ovConfigLogin">
+  <div class="sheet">
+    <h3>Configuración</h3>
+    <p class="helptext">Acceso solo para el encargado de la funcionalidad de la App.</p>
+    <label>Clave de configuración</label>
+    <input type="password" id="cfgClaveInput" placeholder="Clave" autocomplete="off">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovConfigLogin')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="confirmarConfigLogin()">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ovAdminRegAut">
+  <div class="sheet">
+    <h3>Registrar autoridad</h3>
+    <p class="helptext">Se generará una clave de acceso para Rector o Inspector.</p>
+    <label>Rol</label>
+    <select id="adminAutRol">
+      <option value="rector">Rector</option>
+      <option value="inspector">Inspector</option>
+    </select>
+    <label>Nombre completo</label>
+    <input type="text" id="adminAutNombre" placeholder="Nombre y apellido">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovAdminRegAut')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="adminRegistrarAutoridad()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ovAdminClaveNueva">
+  <div class="sheet">
+    <h3>Clave generada</h3>
+    <p class="helptext" id="ovAdminClaveNuevaTexto"></p>
+    <div class="codebox" id="ovAdminClaveNuevaValor"></div>
+    <div class="sheet-actions">
+      <button class="btn btn-primary btn-block" onclick="cerrarAdminClaveNueva()">Listo</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="ovAdminWipe">
+  <div class="sheet">
+    <h3>Eliminar todos los datos</h3>
+    <p class="helptext">Se borrarán tutores, docentes, representantes, autoridades, cursos y mensajes. Escribe <strong>ELIMINAR</strong> para confirmar.</p>
+    <label>Confirmación</label>
+    <input type="text" id="cfgWipeConfirm" placeholder="ELIMINAR" style="text-transform:uppercase;">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovAdminWipe')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1;background:var(--alert);border-color:var(--alert);" onclick="confirmarFormatearApp()">Formatear App</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -695,7 +751,8 @@ function renderAuth(root) {
           <img src="btn-autoridades.png" alt="Autoridades">
         </button>
       </div>
-    </div>`;
+    </div>
+    <button type="button" class="cfg-fab" title="Configuración" onclick="abrirConfigLogin()" aria-label="Configuración">⚙️</button>`;
 }
 
 
@@ -1055,6 +1112,7 @@ function seleccionarRolAutoridad(r) { autoridadRolSel = r; renderPantallaAutorid
 function renderPantallaAutoridad() {
   const root = document.getElementById('root');
   const rolLabel = autoridadRolSel === 'rector' ? 'Rector' : 'Inspector';
+  modoAutoridad = 'login';
   root.innerHTML = `
     <div class="authwrap">
       <div class="topbar" style="border-radius:0 0 26px 26px;">
@@ -1062,33 +1120,19 @@ function renderPantallaAutoridad() {
       </div>
       <div class="authbody">
         <div class="authtitle">Autoridades</div>
-        <div class="rolebar" style="margin:6px 0 12px;">
+        <div class="authsub">Solo acceso con clave. El registro lo realiza el encargado en Configuración.</div>
+        <div class="rolebar" style="margin:6px 0 16px;">
           <button class="${autoridadRolSel==='rector'?'sel':''}" onclick="seleccionarRolAutoridad('rector')">Rector</button>
           <button class="${autoridadRolSel==='inspector'?'sel':''}" onclick="seleccionarRolAutoridad('inspector')">Inspector</button>
         </div>
-        <div class="rolebar" style="margin:0 0 16px;">
-          <button class="${modoAutoridad==='login'?'sel':''}" onclick="cambiarModoAutoridad('login')">Ya tengo clave</button>
-          <button class="${modoAutoridad==='nuevo'?'sel':''}" onclick="cambiarModoAutoridad('nuevo')">Registrarme</button>
-        </div>
-        <div id="autFormArea"></div>
+        <label>Clave de acceso de ${rolLabel}</label>
+        <input type="text" id="autClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
         <div class="sheet-actions">
           <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
-          <button class="btn btn-primary" style="flex:1" onclick="${modoAutoridad==='login'?'iniciarSesionAutoridad()':'crearCuentaAutoridad()'}">${modoAutoridad==='login'?'Entrar':'Registrar'}</button>
+          <button class="btn btn-primary" style="flex:1" onclick="iniciarSesionAutoridad()">Entrar</button>
         </div>
       </div>
     </div>`;
-  const area = document.getElementById('autFormArea');
-  if (modoAutoridad === 'login') {
-    area.innerHTML = `
-      <div class="authsub">Ingresa tu clave de acceso de ${rolLabel}.</div>
-      <label>Clave de acceso</label>
-      <input type="text" id="autClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
-  } else {
-    area.innerHTML = `
-      <div class="authsub">Registro de ${rolLabel}. Se generará una clave personal.</div>
-      <label>Tu nombre</label>
-      <input type="text" id="autNombre" placeholder="Nombre y apellido">`;
-  }
 }
 
 async function iniciarSesionAutoridad() {
@@ -1302,6 +1346,170 @@ async function renderMensajesAutoridad(screen) {
       </div>`;
   }).join('');
 }
+
+
+// ===================== Configuración (encargado) =====================
+const ADMIN_KEY_LOCAL = 'LouPao0320.';
+let adminKeySession = null; // clave validada en memoria (no se guarda)
+
+function abrirConfigLogin() {
+  document.getElementById('cfgClaveInput').value = '';
+  document.getElementById('ovConfigLogin').classList.remove('hidden');
+  setTimeout(() => {
+    const el = document.getElementById('cfgClaveInput');
+    if (el) el.focus();
+  }, 80);
+}
+
+async function confirmarConfigLogin() {
+  const clave = document.getElementById('cfgClaveInput').value || '';
+  if (!clave) { showToast('Ingresa la clave de configuración.'); return; }
+  try {
+    await api('POST', '/api/admin/login', { adminKey: clave });
+    adminKeySession = clave;
+    closeOv('ovConfigLogin');
+    await renderPanelConfig();
+  } catch (e) {
+    showToast(e.message || 'Clave incorrecta.');
+  }
+}
+
+function toggleCfgSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+async function renderPanelConfig() {
+  if (!adminKeySession) {
+    abrirConfigLogin();
+    return;
+  }
+  const root = document.getElementById('root');
+  root.innerHTML = '<div class="cfg-wrap"><div class="empty">Cargando configuración…</div></div>';
+  let data = { tutores: [], docentes: [], representantes: [], autoridades: [] };
+  try {
+    data = await api('POST', '/api/admin/resumen', { adminKey: adminKeySession });
+  } catch (e) {
+    showToast(e.message);
+    adminKeySession = null;
+    render();
+    return;
+  }
+
+  const sec = (id, titulo, count, bodyHtml, open) => `
+    <div class="cfg-section ${open ? 'open' : ''}" id="${id}">
+      <div class="cfg-section-h" onclick="toggleCfgSection('${id}')">
+        <strong>${titulo}</strong>
+        <span>${count} registro(s) ▾</span>
+      </div>
+      <div class="cfg-section-b">${bodyHtml || '<div class="empty" style="padding:8px 0;">Sin registros.</div>'}</div>
+    </div>`;
+
+  const tutoresHtml = (data.tutores || []).map(t => `
+    <div class="cfg-row">
+      <div class="nm">${escapeHtml(t.nombre)}</div>
+      <div class="meta">Curso: ${escapeHtml(t.cursoNombre || '—')}${t.claveCurso ? ' · Clave curso: ' + escapeHtml(t.claveCurso) : ''}</div>
+      <span class="cfg-key">${escapeHtml(t.claveAcceso || '')}</span>
+    </div>`).join('');
+
+  const docentesHtml = (data.docentes || []).map(d => {
+    const cursos = (d.cursos || []).map(c => escapeHtml(c.nombre) + ' — ' + escapeHtml(c.asignatura)).join('<br>') || 'Sin cursos';
+    return `<div class="cfg-row">
+      <div class="nm">${escapeHtml(d.nombre)}</div>
+      <div class="meta">${cursos}</div>
+      <span class="cfg-key">${escapeHtml(d.claveAcceso || '')}</span>
+    </div>`;
+  }).join('');
+
+  const repsHtml = (data.representantes || []).map(r => {
+    const hijos = (r.estudiantes || []).map(h => escapeHtml(h.nombre) + (h.contacto ? ' · ' + escapeHtml(h.contacto) : '')).join('<br>') || 'Sin estudiantes vinculados';
+    return `<div class="cfg-row">
+      <div class="nm">${escapeHtml(r.nombre)}</div>
+      <div class="meta">${hijos}</div>
+      <span class="cfg-key">${escapeHtml(r.claveAcceso || '')}</span>
+    </div>`;
+  }).join('');
+
+  const autHtml = (data.autoridades || []).map(a => `
+    <div class="cfg-row">
+      <div class="nm">${escapeHtml(a.nombre)}</div>
+      <div class="meta">${a.rol === 'rector' ? 'Rector' : 'Inspector'}</div>
+      <span class="cfg-key">${escapeHtml(a.claveAcceso || '')}</span>
+    </div>`).join('');
+
+  root.innerHTML = `
+    <div class="cfg-wrap">
+      <div class="cfg-head">
+        <h2>⚙️ Configuración</h2>
+        <p>Panel del encargado · solo con clave de acceso</p>
+      </div>
+      <div style="padding:0 12px 8px;display:flex;gap:8px;">
+        <button class="btn" style="flex:1" onclick="salirConfig()">Salir</button>
+        <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('ovAdminRegAut').classList.remove('hidden')">+ Autoridad</button>
+      </div>
+      ${sec('cfgTut', 'Tutores', (data.tutores||[]).length, tutoresHtml, true)}
+      ${sec('cfgDoc', 'Docentes', (data.docentes||[]).length, docentesHtml, false)}
+      ${sec('cfgRep', 'Representantes', (data.representantes||[]).length, repsHtml, false)}
+      ${sec('cfgAut', 'Autoridades', (data.autoridades||[]).length, autHtml, false)}
+      <div class="cfg-danger">
+        <h3>Formatear / nuevo año lectivo</h3>
+        <p>Elimina todos los registros (cursos, usuarios, mensajes). La App quedará vacía para empezar de nuevo. Esta acción no se puede deshacer.</p>
+        <button class="btn btn-primary btn-block" style="background:var(--alert);border-color:var(--alert);" onclick="pedirFormatearApp()">Eliminar todos los datos</button>
+      </div>
+    </div>`;
+}
+
+function salirConfig() {
+  adminKeySession = null;
+  enPantallaRegistro = false;
+  render();
+}
+
+function pedirFormatearApp() {
+  document.getElementById('ovAdminWipe').classList.remove('hidden');
+}
+
+async function confirmarFormatearApp() {
+  const conf = (document.getElementById('cfgWipeConfirm').value || '').trim().toUpperCase();
+  if (conf !== 'ELIMINAR') {
+    showToast('Escribe ELIMINAR para confirmar.');
+    return;
+  }
+  try {
+    await api('POST', '/api/admin/borrar-todo', { adminKey: adminKeySession });
+    closeOv('ovAdminWipe');
+    adminKeySession = null;
+    session = null; me = null;
+    guardarSesionLocal();
+    showToast('Todos los datos fueron eliminados. App lista para un nuevo año.');
+    render();
+  } catch (e) { showToast(e.message); }
+}
+
+async function adminRegistrarAutoridad() {
+  const nombre = (document.getElementById('adminAutNombre').value || '').trim();
+  const rol = document.getElementById('adminAutRol').value;
+  if (!nombre) { showToast('Ingresa el nombre.'); return; }
+  try {
+    const r = await api('POST', '/api/admin/autoridades', {
+      adminKey: adminKeySession,
+      nombre,
+      rol,
+    });
+    closeOv('ovAdminRegAut');
+    document.getElementById('adminAutNombre').value = '';
+    document.getElementById('ovAdminClaveNuevaValor').textContent = r.claveAcceso;
+    document.getElementById('ovAdminClaveNuevaTexto').textContent =
+      (r.rol === 'rector' ? 'Rector' : 'Inspector') + ': ' + r.nombre + '. Guarda esta clave para entregársela.';
+    document.getElementById('ovAdminClaveNueva').classList.remove('hidden');
+  } catch (e) { showToast(e.message); }
+}
+
+async function cerrarAdminClaveNueva() {
+  closeOv('ovAdminClaveNueva');
+  await renderPanelConfig();
+}
+
 
 // ===================== app principal =====================
 const tabsByRole = {
