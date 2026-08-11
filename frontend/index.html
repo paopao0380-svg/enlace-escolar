@@ -1061,9 +1061,9 @@ function renderPantallaTutor() {
   const area = document.getElementById('tutorFormArea');
   if (modoTutor === 'login') {
     area.innerHTML = `
-      <div class="authsub">Ingresa la clave de tu curso para entrar.</div>
-      <label>Clave del curso</label>
-      <input type="text" id="tutClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
+      <div class="authsub">Ingresa tu clave personal para entrar a tu curso.</div>
+      <label>Clave personal</label>
+      <input type="text" id="tutClaveLogin" placeholder="Ej: LOUPAO0320" style="text-transform:uppercase;">`;
   } else {
     area.innerHTML = `
       <div class="authsub">Vas a crear tu curso y una clave propia que usarán tus docentes para vincularse.</div>
@@ -1077,9 +1077,9 @@ function renderPantallaTutor() {
 
 async function iniciarSesionTutor() {
   const clave = document.getElementById('tutClaveLogin').value.trim().toUpperCase();
-  if (!clave) { showToast('Ingresa la clave de tu curso.'); return; }
+  if (!clave) { showToast('Ingresa tu clave personal.'); return; }
   try {
-    const r = await api('POST', '/api/tutores/login', { claveCurso: clave });
+    const r = await api('POST', '/api/tutores/login', { claveCurso: clave, claveAcceso: clave });
     session = { usuarioId: r.usuario.id };
     me = r.usuario;
     guardarSesionLocal();
@@ -1278,7 +1278,7 @@ function abrirClaveCurso({ modo, usuarioId, nombre, cursoId, claveCorrecta }) {
   const titulo = document.getElementById('claveCursoTitulo');
   const texto = document.getElementById('claveCursoTexto');
   titulo.textContent = '¡Tu curso quedó creado!';
-  texto.textContent = 'Esta es la clave de tu curso. Los Docentes la usarán para vincularse, y tú debes reingresarla ahora para confirmar y entrar:';
+  texto.textContent = 'Esta es la clave de tu curso (para Docentes). También es tu clave personal inicial para entrar. Luego podrás cambiar solo tu clave personal desde el botón Clave:';
   mostrar.style.display = 'block';
   mostrar.textContent = claveCorrecta;
   document.getElementById('ovClaveCurso').classList.remove('hidden');
