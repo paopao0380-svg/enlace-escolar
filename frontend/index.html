@@ -1375,11 +1375,10 @@ function mostrarRegistroAutoridad() {
   renderPantallaAutoridad();
 }
 function cambiarModoAutoridad(m) { modoAutoridad = m; renderPantallaAutoridad(); }
-function seleccionarRolAutoridad(r) { autoridadRolSel = r; renderPantallaAutoridad(); }
+function seleccionarRolAutoridad(r) { autoridadRolSel = r; }
 
 function renderPantallaAutoridad() {
   const root = document.getElementById('root');
-  const rolLabel = autoridadRolSel === 'rector' ? 'Rector' : autoridadRolSel === 'inspector' ? 'Inspector' : 'DECE';
   modoAutoridad = 'login';
   root.innerHTML = `
     <div class="authwrap">
@@ -1388,20 +1387,17 @@ function renderPantallaAutoridad() {
       </div>
       <div class="authbody">
         <div class="authtitle">Autoridades</div>
-        <div class="authsub">Solo acceso con clave. El registro lo realiza el encargado en Configuración.</div>
-        <div class="rolebar" style="margin:6px 0 16px;">
-          <button class="${autoridadRolSel==='rector'?'sel':''}" onclick="seleccionarRolAutoridad('rector')">Rector</button>
-          <button class="${autoridadRolSel==='inspector'?'sel':''}" onclick="seleccionarRolAutoridad('inspector')">Inspector</button>
-          <button class="${autoridadRolSel==='dece'?'sel':''}" onclick="seleccionarRolAutoridad('dece')">DECE</button>
-        </div>
-        <label>Clave de acceso de ${rolLabel}</label>
-        <input type="password" id="autClaveLogin" name="autClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly'); this.value='';" data-lpignore="true" data-form-type="other" spellcheck="false">
-        <div class="sheet-actions">
+        <div class="authsub">Ingresa tu clave de acceso. El sistema reconocerá si eres Rector, Inspector o DECE.</div>
+        <label>Clave de acceso</label>
+        <input type="password" id="autClaveLogin" name="autClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" data-lpignore="true" data-form-type="other" spellcheck="false" readonly onfocus="this.removeAttribute('readonly'); this.value='';">
+        <div class="sheet-actions" style="margin-top:14px;">
           <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
           <button class="btn btn-primary" style="flex:1" onclick="iniciarSesionAutoridad()">Entrar</button>
         </div>
       </div>
     </div>`;
+  setTimeout(limpiarCamposClave, 0);
+  setTimeout(limpiarCamposClave, 100);
 }
 
 async function iniciarSesionAutoridad() {
