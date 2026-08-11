@@ -529,6 +529,13 @@
   }
   .cfg-del-btn:active{opacity:0.85;}
 
+
+  input.input-celular,
+  .input-celular{
+    width: 52% !important;
+    max-width: 170px !important;
+    box-sizing: border-box;
+  }
 </style>
 </head>
 <body>
@@ -540,10 +547,12 @@
 <div class="overlay hidden" id="ovEditarEstudiante">
   <div class="sheet">
     <h3>Editar estudiante</h3>
-    <p class="helptext">Puedes corregir el nombre del estudiante. Los datos del representante se actualizan al vincularse.</p>
+    <p class="helptext">Puedes corregir el nombre del estudiante y el celular del representante.</p>
     <input type="hidden" id="editEstId">
     <label>Nombre del estudiante</label>
     <input type="text" id="editEstNombre" placeholder="Nombre completo">
+    <label>Celular del representante</label>
+    <input type="tel" id="editRepContacto" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovEditarEstudiante')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionEstudiante()">Guardar</button>
@@ -610,7 +619,7 @@
     <h3>Vincular a un estudiante</h3>
     <p class="helptext">Ingresa tu celular y el código de invitación de 6 caracteres que te compartió el Tutor.</p>
     <label>Celular</label>
-    <input type="tel" id="vincCelular" placeholder="Ej: 0987654321" inputmode="numeric">
+    <input type="tel" id="vincCelular" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
     <label>Código de invitación</label>
     <input type="text" id="vincCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
     <div class="sheet-actions">
@@ -796,6 +805,16 @@ function fmtFecha(iso) {
   return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
 }
 function tipoLabel(t) { return t === 'alert' ? 'Llamado de atención' : t === 'sage' ? 'Felicitación' : 'Informe académico'; }
+function soloDigitosCelular(el) {
+  if (!el) return;
+  el.value = String(el.value || '').replace(/\D/g, '').slice(0, 10);
+}
+document.addEventListener('input', function(ev) {
+  const t = ev.target;
+  if (t && (t.id === 'repCelular' || t.id === 'vincCelular' || t.id === 'editRepContacto')) {
+    soloDigitosCelular(t);
+  }
+});
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1118,7 +1137,7 @@ function renderPantallaRepresentante() {
       <label>Tu nombre</label>
       <input type="text" id="repNombre2" placeholder="Nombre y apellido">
       <label>Celular</label>
-      <input type="tel" id="repCelular" placeholder="Ej: 0987654321" inputmode="numeric">
+      <input type="tel" id="repCelular" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
       <label>Código de invitación del estudiante</label>
       <input type="text" id="repCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
   }
@@ -1139,7 +1158,7 @@ async function iniciarSesionRepresentante() {
 
 async function crearCuentaRepresentante() {
   const nombre = document.getElementById('repNombre2').value.trim();
-  const celular = ((document.getElementById('repCelular') || {}).value || '').trim();
+  const celular = String((document.getElementById('repCelular') || {}).value || '').replace(/\D/g, '').slice(0, 10);
   const codigo = document.getElementById('repCodigo').value.trim().toUpperCase();
   if (!nombre || !celular || !codigo) { showToast('Completa tu nombre, celular y el código de invitación.'); return; }
   try {
@@ -1895,7 +1914,7 @@ async function renderInicioTutor(screen) {
               <div style="min-width:0;flex:1;">
                 <div class="stu-name">${e.nombre}</div>
                 <div class="stu-meta">Representante: ${repLabel}</div>
-                ${e.representanteContacto ? `<div class="stu-meta">Celular / contacto: ${e.representanteContacto}</div>` : ''}
+                ${e.representanteId ? `<div class="stu-meta">Celular: ${e.representanteContacto || 'sin número'}</div>` : ''}
                 ${e.representanteId ? '<span class="tag ok">vinculado</span>' : `<span class="tag pend">código: ${e.codigoInvitacion||''}</span>`}
               </div>
               <div class="stu-actions-mini">
@@ -2023,12 +2042,15 @@ async function abrirEditarEstudiante(estId) {
   if (!e) { showToast('Estudiante no encontrado.'); return; }
   document.getElementById('editEstId').value = e.id;
   document.getElementById('editEstNombre').value = e.nombre || '';
+  var celEl = document.getElementById('editRepContacto');
+  if (celEl) celEl.value = String(e.representanteContacto || '').replace(/\D/g, '').slice(0, 10);
   document.getElementById('ovEditarEstudiante').classList.remove('hidden');
 }
 
 async function guardarEdicionEstudiante() {
   const id = document.getElementById('editEstId').value;
   const nombre = (document.getElementById('editEstNombre').value || '').trim();
+  const contacto = String((document.getElementById('editRepContacto') || {}).value || '').replace(/\D/g, '').slice(0, 10);
   if (!nombre) {
     showToast('Completa el nombre del estudiante.');
     return;
@@ -2037,6 +2059,7 @@ async function guardarEdicionEstudiante() {
     await api('PATCH', '/api/estudiantes/' + id, {
       tutorId: me.id,
       nombre: nombre,
+      representanteContacto: contacto,
     });
     closeOv('ovEditarEstudiante');
     showToast('Datos actualizados.');
@@ -2202,7 +2225,7 @@ function abrirMensajeTodos() {
 // ===================== vincular representante adicional =====================
 async function vincularRepresentante() {
   const codigo = document.getElementById('vincCodigo').value.trim().toUpperCase();
-  const celular = ((document.getElementById('vincCelular') || {}).value || '').trim();
+  const celular = String((document.getElementById('vincCelular') || {}).value || '').replace(/\D/g, '').slice(0, 10);
   if (!codigo) { showToast('Ingresa el código de invitación.'); return; }
   if (!celular) { showToast('Ingresa tu celular.'); return; }
   try {
