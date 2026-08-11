@@ -737,14 +737,36 @@
   </div>
 </div>
 
+
+<div class="overlay hidden" id="ovAdminEditAut">
+  <div class="sheet">
+    <h3>Modificar autoridad</h3>
+    <p class="helptext">Actualiza el nombre o el cargo.</p>
+    <input type="hidden" id="editAutId">
+    <label>Rol</label>
+    <select id="editAutRol">
+      <option value="rector">Rector</option>
+      <option value="inspector">Inspector</option>
+      <option value="dece">DECE</option>
+    </select>
+    <label>Nombre completo</label>
+    <input type="text" id="editAutNombre" placeholder="Nombre y apellido">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovAdminEditAut')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionAutoridad()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="ovAdminRegAut">
   <div class="sheet">
     <h3>Registrar autoridad</h3>
-    <p class="helptext">Se generará una clave de acceso para Rector o Inspector.</p>
+    <p class="helptext">Se generará una clave de acceso para Rector, Inspector o DECE.</p>
     <label>Rol</label>
     <select id="adminAutRol">
       <option value="rector">Rector</option>
       <option value="inspector">Inspector</option>
+      <option value="dece">DECE</option>
     </select>
     <label>Nombre completo</label>
     <input type="text" id="adminAutNombre" placeholder="Nombre y apellido">
@@ -1268,7 +1290,7 @@ function seleccionarRolAutoridad(r) { autoridadRolSel = r; renderPantallaAutorid
 
 function renderPantallaAutoridad() {
   const root = document.getElementById('root');
-  const rolLabel = autoridadRolSel === 'rector' ? 'Rector' : 'Inspector';
+  const rolLabel = autoridadRolSel === 'rector' ? 'Rector' : autoridadRolSel === 'inspector' ? 'Inspector' : 'DECE';
   modoAutoridad = 'login';
   root.innerHTML = `
     <div class="authwrap">
@@ -1281,6 +1303,7 @@ function renderPantallaAutoridad() {
         <div class="rolebar" style="margin:6px 0 16px;">
           <button class="${autoridadRolSel==='rector'?'sel':''}" onclick="seleccionarRolAutoridad('rector')">Rector</button>
           <button class="${autoridadRolSel==='inspector'?'sel':''}" onclick="seleccionarRolAutoridad('inspector')">Inspector</button>
+          <button class="${autoridadRolSel==='dece'?'sel':''}" onclick="seleccionarRolAutoridad('dece')">DECE</button>
         </div>
         <label>Clave de acceso de ${rolLabel}</label>
         <input type="text" id="autClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
@@ -1601,12 +1624,20 @@ async function renderPanelConfig() {
     </div>`;
   }).join('');
 
-  const autHtml = autoridades.map(a => `
+  const rolAutLabel = (rol) => rol === 'rector' ? 'Rector' : rol === 'inspector' ? 'Inspector' : rol === 'dece' ? 'DECE' : rol;
+  const autHtml = autoridades.map(a => {
+    const safe = String(a.nombre||'').replace(/'/g, "\\'");
+    return `
     <div class="cfg-row" data-nombre="${escapeHtml(String(a.nombre || '').toLowerCase())}">
       <div class="nm">${escapeHtml(a.nombre)}</div>
-      <div class="meta">${a.rol === 'rector' ? 'Rector' : 'Inspector'}</div>
+      <div class="meta">${rolAutLabel(a.rol)}</div>
       <span class="cfg-key">${escapeHtml(a.claveAcceso || '')}</span>
-    </div>`).join('');
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <button type="button" class="cfg-del-btn" style="background:#E8F0FA;border-color:#C5D4E8;color:#1E3A5C;" onclick="abrirEditarAutoridad('${a.id}','${safe}','${a.rol}')">Modificar</button>
+        <button type="button" class="cfg-del-btn" onclick="adminEliminarAutoridad('${a.id}','${safe}')">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
 
   root.innerHTML = `
     <div class="cfg-wrap">
@@ -1684,6 +1715,42 @@ async function adminEliminarUsuario(id, rol, nombre) {
   } catch (e) { showToast(e.message); }
 }
 
+
+function abrirEditarAutoridad(id, nombre, rol) {
+  document.getElementById('editAutId').value = id;
+  document.getElementById('editAutNombre').value = nombre || '';
+  document.getElementById('editAutRol').value = rol || 'rector';
+  document.getElementById('ovAdminEditAut').classList.remove('hidden');
+}
+
+async function guardarEdicionAutoridad() {
+  const id = document.getElementById('editAutId').value;
+  const nombre = (document.getElementById('editAutNombre').value || '').trim();
+  const rol = document.getElementById('editAutRol').value;
+  if (!nombre) { showToast('Ingresa el nombre.'); return; }
+  try {
+    await api('POST', '/api/admin/autoridades/editar', {
+      adminKey: adminKeySession,
+      id, nombre, rol,
+    });
+    closeOv('ovAdminEditAut');
+    showToast('Autoridad actualizada.');
+    await renderPanelConfig();
+  } catch (e) { showToast(e.message); }
+}
+
+async function adminEliminarAutoridad(id, nombre) {
+  if (!confirm('¿Eliminar a ' + (nombre || 'esta autoridad') + '?\\nSe borrarán también sus comunicados enviados.')) return;
+  try {
+    await api('POST', '/api/admin/autoridades/borrar', {
+      adminKey: adminKeySession,
+      id,
+    });
+    showToast('Autoridad eliminada.');
+    await renderPanelConfig();
+  } catch (e) { showToast(e.message); }
+}
+
 async function adminRegistrarAutoridad() {
   const nombre = (document.getElementById('adminAutNombre').value || '').trim();
   const rol = document.getElementById('adminAutRol').value;
@@ -1698,7 +1765,7 @@ async function adminRegistrarAutoridad() {
     document.getElementById('adminAutNombre').value = '';
     document.getElementById('ovAdminClaveNuevaValor').textContent = r.claveAcceso;
     document.getElementById('ovAdminClaveNuevaTexto').textContent =
-      (r.rol === 'rector' ? 'Rector' : 'Inspector') + ': ' + r.nombre + '. Guarda esta clave para entregársela.';
+      (r.rol === 'rector' ? 'Rector' : r.rol === 'inspector' ? 'Inspector' : 'DECE') + ': ' + r.nombre + '. Guarda esta clave para entregársela.';
     document.getElementById('ovAdminClaveNueva').classList.remove('hidden');
   } catch (e) { showToast(e.message); }
 }
@@ -1735,7 +1802,7 @@ async function renderApp(root) {
     } else if (me.rol === 'tutor') {
       mensajesList = (await api('GET', `/api/tutores/${me.id}/mensajes`)).mensajes;
       mensajesInst = (await api('GET', `/api/usuarios/${me.id}/mensajes-institucionales`)).mensajes || [];
-    } else if (me.rol === 'rector' || me.rol === 'inspector') {
+    } else if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') {
       mensajesList = (await api('GET', `/api/autoridades/${me.id}/mensajes`)).mensajes || [];
     } else {
       mensajesList = (await api('GET', `/api/representantes/${me.id}/mensajes`)).mensajes;
@@ -1759,7 +1826,7 @@ async function renderApp(root) {
       <div class="user-row">
         <div class="user-info">
           <div class="user-name">${(me.nombre||'').trim()}</div>
-          <div class="user-role">${({tutor:'Tutor',docente:'Docente',representante:'Representante',rector:'Rector',inspector:'Inspector'}[me.rol]||me.rol)}</div>
+          <div class="user-role">${({tutor:'Tutor',docente:'Docente',representante:'Representante',rector:'Rector',inspector:'Inspector',dece:'DECE'}[me.rol]||me.rol)}</div>
         </div>
         <button type="button" class="btn-salir" onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
       </div>
@@ -1794,11 +1861,11 @@ async function renderApp(root) {
 
   const screen = document.getElementById('screen');
   if (currentTab === 'mensajes') {
-    if (me.rol === 'rector' || me.rol === 'inspector') { await renderMensajesAutoridad(screen); return; }
+    if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') { await renderMensajesAutoridad(screen); return; }
     renderMensajes(screen, mensajesList, mensajesInst);
     return;
   }
-  if (me.rol === 'rector' || me.rol === 'inspector') await renderInicioAutoridad(screen);
+  if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') await renderInicioAutoridad(screen);
   else if (me.rol === 'docente') await renderInicioDocente(screen);
   else if (me.rol === 'tutor') await renderInicioTutor(screen);
   else await renderInicioRepresentante(screen);
@@ -2009,6 +2076,7 @@ function renderMensajes(screen, lista, mensajesInst) {
     ? `<div class="section-title">${me.rol === 'tutor' ? 'Comunicados y mensajes del equipo' : 'Comunicados institucionales'}</div>` + mensajesInst.map(m => {
         const rolAut = m.remitenteRol === 'rector' ? 'Rector'
           : m.remitenteRol === 'inspector' ? 'Inspector'
+          : m.remitenteRol === 'dece' ? 'DECE'
           : m.remitenteRol === 'docente' ? 'Docente'
           : m.remitenteRol === 'tutor' ? 'Tutor'
           : 'Autoridad';
