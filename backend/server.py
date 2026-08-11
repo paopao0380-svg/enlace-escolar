@@ -98,11 +98,41 @@ def h_crear_tutor(params, body):
 
 
 def h_login_tutor(params, body):
-    clave = (body.get('claveCurso') or '').strip().upper()
+    """Tutor entra con su clave personal.
+    La clave del curso NO se modifica y sigue sirviendo a los Docentes.
+    Si el tutor aún no cambió su clave, puede entrar con la clave del curso.
+    """
+    clave = (body.get('claveCurso') or body.get('claveAcceso') or '').strip().upper()
+    if not clave:
+        raise ApiError(400, 'Ingresa tu clave.')
+
+    # 1) Clave personal del tutor (prioridad)
+    tutor = row("SELECT * FROM usuarios WHERE rol = 'tutor' AND UPPER(COALESCE(clave_acceso,'')) = ?", (clave,))
+    if tutor:
+        curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (tutor['id'],))
+        if not curso:
+            raise ApiError(404, 'No se encontró el curso del tutor.')
+        return 200, {'usuario': ser_usuario(tutor), 'curso': ser_curso(curso)}
+
+    # 2) Clave del curso: solo si el tutor aún no tiene clave personal distinta
     curso = row('SELECT * FROM cursos WHERE clave_curso = ?', (clave,))
     if not curso:
-        raise ApiError(404, 'No existe ningún curso con esa clave.')
+        raise ApiError(404, 'Clave incorrecta.')
     tutor = row('SELECT * FROM usuarios WHERE id = ?', (curso['tutor_id'],))
+    if not tutor:
+        raise ApiError(404, 'Tutor no encontrado.')
+
+    personal = (tutor.get('clave_acceso') or '').strip().upper()
+    curso_clave = (curso.get('clave_curso') or '').strip().upper()
+
+    # Si ya cambió su clave personal, debe usar esa (no la del curso)
+    if personal and personal != curso_clave:
+        raise ApiError(403, 'Usa tu clave personal de acceso (la que configuraste). La clave del curso es solo para Docentes.')
+
+    if not personal:
+        run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (clave, tutor['id']))
+        tutor = row('SELECT * FROM usuarios WHERE id = ?', (tutor['id'],))
+
     return 200, {'usuario': ser_usuario(tutor), 'curso': ser_curso(curso)}
 
 
@@ -320,22 +350,38 @@ def h_cambiar_clave(params, body):
     nueva = (body.get('claveNueva') or '').strip().upper()
     if not actual or not nueva:
         raise ApiError(400, 'Ingresa la clave actual y la nueva.')
-    if actual != (u.get('clave_acceso') or '').upper():
-        raise ApiError(403, 'La clave actual no es correcta.')
+
+    guardada = (u.get('clave_acceso') or '').strip().upper()
+    ok_actual = bool(guardada) and actual == guardada
+
+    # Tutor: también aceptar la clave del curso como "actual"
+    if not ok_actual and u.get('rol') == 'tutor':
+        curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (uid_user,))
+        if curso and actual == (curso.get('clave_curso') or '').strip().upper():
+            ok_actual = True
+            # si no tenía clave_acceso, la inicializamos con la del curso
+            if not guardada:
+                run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (actual, uid_user))
+
+    if not ok_actual:
+        raise ApiError(403, 'La clave actual no es correcta. Usa la clave con la que ingresas a la App (no confundir con otras claves).')
+
     if len(nueva) < 4:
         raise ApiError(400, 'La nueva clave debe tener al menos 4 caracteres.')
     if len(nueva) > 20:
         raise ApiError(400, 'La nueva clave no puede superar 20 caracteres.')
     if nueva == actual:
         raise ApiError(400, 'La nueva clave debe ser distinta a la actual.')
-    # solo letras y números
-    if not all(c.isalnum() for c in nueva):
-        raise ApiError(400, 'La clave solo puede tener letras y números (sin espacios).')
-    otro = row('SELECT id FROM usuarios WHERE UPPER(clave_acceso) = ? AND id != ?', (nueva, uid_user))
+    # letras, números y algunos símbolos seguros
+    permitidos = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-')
+    if not all(c in permitidos for c in nueva):
+        raise ApiError(400, 'La clave solo puede tener letras, números y . _ -')
+    otro = row('SELECT id FROM usuarios WHERE UPPER(COALESCE(clave_acceso,"")) = ? AND id != ?', (nueva, uid_user))
     if otro:
         raise ApiError(409, 'Esa clave ya está en uso. Elige otra.')
     run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (nueva, uid_user))
     return 200, {'ok': True, 'claveAcceso': nueva}
+
 
 def h_usuario_por_id(params, body):
     u = row('SELECT * FROM usuarios WHERE id = ?', (params['id'],))
