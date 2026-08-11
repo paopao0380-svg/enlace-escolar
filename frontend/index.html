@@ -809,7 +809,7 @@
 <div class="overlay hidden" id="ovCambiarClave">
   <div class="sheet">
     <h3>Cambiar clave de acceso</h3>
-    <p class="helptext">Elige una clave fácil de recordar (letras y números, mínimo 4). Se guardará en mayúsculas.</p>
+    <p class="helptext">Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.<br><strong>Tutor:</strong> la clave del curso <u>no cambia</u> y sigue sirviendo para que los Docentes se vinculen al grado. La nueva clave es solo tuya para ingresar.</p>
     <label>Clave actual</label>
     <input type="text" id="claveActualInput" placeholder="Tu clave actual" style="text-transform:uppercase;" autocomplete="off">
     <label>Nueva clave</label>
@@ -960,7 +960,7 @@ function renderAuth(root) {
 
 function abrirCambiarClave() {
   if (!me) return;
-  document.getElementById('claveActualInput').value = '';
+  document.getElementById('claveActualInput').value = (me.claveAcceso || '').toUpperCase();
   document.getElementById('claveNuevaInput').value = '';
   document.getElementById('claveNueva2Input').value = '';
   document.getElementById('ovCambiarClave').classList.remove('hidden');
