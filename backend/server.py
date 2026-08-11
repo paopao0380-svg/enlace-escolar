@@ -354,17 +354,14 @@ def h_cambiar_clave(params, body):
     guardada = (u.get('clave_acceso') or '').strip().upper()
     ok_actual = bool(guardada) and actual == guardada
 
-    # Tutor: también aceptar la clave del curso como "actual"
+    # Tutor: aceptar también la clave del curso como clave actual (sin modificarla)
     if not ok_actual and u.get('rol') == 'tutor':
         curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (uid_user,))
         if curso and actual == (curso.get('clave_curso') or '').strip().upper():
             ok_actual = True
-            # si no tenía clave_acceso, la inicializamos con la del curso
-            if not guardada:
-                run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (actual, uid_user))
 
     if not ok_actual:
-        raise ApiError(403, 'La clave actual no es correcta. Usa la clave con la que ingresas a la App (no confundir con otras claves).')
+        raise ApiError(403, 'La clave actual no es correcta. Usa la clave con la que ingresas a la App.')
 
     if len(nueva) < 4:
         raise ApiError(400, 'La nueva clave debe tener al menos 4 caracteres.')
@@ -372,14 +369,28 @@ def h_cambiar_clave(params, body):
         raise ApiError(400, 'La nueva clave no puede superar 20 caracteres.')
     if nueva == actual:
         raise ApiError(400, 'La nueva clave debe ser distinta a la actual.')
-    # letras, números y algunos símbolos seguros
+
     permitidos = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-')
     if not all(c in permitidos for c in nueva):
         raise ApiError(400, 'La clave solo puede tener letras, números y . _ -')
-    otro = row('SELECT id FROM usuarios WHERE UPPER(COALESCE(clave_acceso,"")) = ? AND id != ?', (nueva, uid_user))
-    if otro:
-        raise ApiError(409, 'Esa clave ya está en uso. Elige otra.')
-    run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (nueva, uid_user))
+
+    # ¿Alguien más ya usa esa clave?
+    try:
+        otros = rows('SELECT id, clave_acceso FROM usuarios WHERE id != ?', (uid_user,))
+    except Exception:
+        otros = []
+    for o in otros:
+        if (o.get('clave_acceso') or '').strip().upper() == nueva:
+            raise ApiError(409, 'Esa clave ya está en uso. Elige otra.')
+
+    try:
+        run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (nueva, uid_user))
+    except Exception as e:
+        msg = str(e).lower()
+        if 'unique' in msg or 'constraint' in msg:
+            raise ApiError(409, 'Esa clave ya está en uso. Elige otra.')
+        raise ApiError(500, 'No se pudo guardar la nueva clave. Intenta de nuevo.')
+
     return 200, {'ok': True, 'claveAcceso': nueva}
 
 
