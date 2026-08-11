@@ -822,11 +822,11 @@
     <h3>Cambiar clave de acceso</h3>
     <p class="helptext">Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.<br><strong>Tutor:</strong> la clave del curso <u>no cambia</u> y sigue sirviendo para que los Docentes se vinculen al grado. La nueva clave es solo tuya para ingresar.</p>
     <label>Clave actual</label>
-    <input type="password" id="claveActualInput" placeholder="Tu clave actual" style="text-transform:uppercase;" autocomplete="off">
+    <input type="password" id="claveActualInput" name="claveActualInput_x" value="" placeholder="Tu clave actual" autocomplete="new-password" data-lpignore="true" spellcheck="false">
     <label>Nueva clave</label>
-    <input type="password" id="claveNuevaInput" placeholder="Ej: MIHIJO2026" style="text-transform:uppercase;" autocomplete="off">
+    <input type="password" id="claveNuevaInput" name="claveNuevaInput_x" value="" placeholder="Ej: MIHIJO2026" autocomplete="new-password" data-lpignore="true" spellcheck="false">
     <label>Confirmar nueva clave</label>
-    <input type="password" id="claveNueva2Input" placeholder="Repite la nueva clave" style="text-transform:uppercase;" autocomplete="off">
+    <input type="password" id="claveNueva2Input" name="claveNueva2Input_x" value="" placeholder="Repite la nueva clave" autocomplete="new-password" data-lpignore="true" spellcheck="false">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovCambiarClave')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarNuevaClave()">Guardar</button>
@@ -899,6 +899,21 @@ document.addEventListener('input', function(ev) {
     soloDigitosCelular(t);
   }
 });
+document.addEventListener('focusin', function(ev) {
+  var t = ev.target;
+  if (t && t.tagName === 'INPUT' && t.type === 'password' && t.id && /Clave|clave/.test(t.id)) {
+    if (t.hasAttribute('data-clear-once')) return;
+    t.setAttribute('data-clear-once', '1');
+    // si el navegador rellenó solo, limpiar al primer foco de la sesión de pantalla
+  }
+});
+function limpiarCamposClave() {
+  ['tutClaveLogin','docClaveLogin','repClaveLogin','autClaveLogin',
+   'claveActualInput','claveNuevaInput','claveNueva2Input','claveCursoInput'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.value = ''; el.defaultValue = ''; }
+  });
+}
 function mayusNombre(s) {
   return String(s || '').trim().toUpperCase();
 }
@@ -971,10 +986,15 @@ function renderAuth(root) {
 
 function abrirCambiarClave() {
   if (!me) return;
-  document.getElementById('claveActualInput').value = (me.claveAcceso || '').toUpperCase();
+  document.getElementById('claveActualInput').value = '';
   document.getElementById('claveNuevaInput').value = '';
   document.getElementById('claveNueva2Input').value = '';
   document.getElementById('ovCambiarClave').classList.remove('hidden');
+  setTimeout(function() {
+    document.getElementById('claveActualInput').value = '';
+    document.getElementById('claveNuevaInput').value = '';
+    document.getElementById('claveNueva2Input').value = '';
+  }, 50);
 }
 
 async function guardarNuevaClave() {
@@ -1074,7 +1094,9 @@ function renderPantallaTutor() {
     area.innerHTML = `
       <div class="authsub">Ingresa tu clave personal para entrar a tu curso.</div>
       <label>Clave personal</label>
-      <input type="password" id="tutClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;" autocomplete="current-password">`;
+      <input type="password" id="tutClaveLogin" name="tutClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly'); this.value='';" data-lpignore="true" data-form-type="other" spellcheck="false">`;
+    setTimeout(limpiarCamposClave, 0);
+    setTimeout(limpiarCamposClave, 100);
   } else {
     area.innerHTML = `
       <div class="authsub">Vas a crear tu curso y una clave propia que usarán tus docentes para vincularse.</div>
@@ -1143,7 +1165,9 @@ function renderPantallaDocente() {
     area.innerHTML = `
       <div class="authsub">Ingresa tu clave de acceso personal para entrar.</div>
       <label>Clave de acceso</label>
-      <input type="password" id="docClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;" autocomplete="current-password">`;
+      <input type="password" id="docClaveLogin" name="docClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly'); this.value='';" data-lpignore="true" data-form-type="other" spellcheck="false">`;
+    setTimeout(limpiarCamposClave, 0);
+    setTimeout(limpiarCamposClave, 100);
   } else {
     area.innerHTML = `
       <div class="authsub">Ingresa la clave de cada curso donde das clase, junto con la asignatura. Puedes agregar más de uno.</div>
@@ -1244,7 +1268,9 @@ function renderPantallaRepresentante() {
     area.innerHTML = `
       <div class="authsub">Ingresa tu clave de acceso personal para entrar.</div>
       <label>Clave de acceso</label>
-      <input type="password" id="repClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;" autocomplete="current-password">`;
+      <input type="password" id="repClaveLogin" name="repClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly'); this.value='';" data-lpignore="true" data-form-type="other" spellcheck="false">`;
+    setTimeout(limpiarCamposClave, 0);
+    setTimeout(limpiarCamposClave, 100);
   } else {
     area.innerHTML = `
       <div class="authsub">Ingresa tus datos y el código de invitación que te compartió el Tutor.</div>
@@ -1369,7 +1395,7 @@ function renderPantallaAutoridad() {
           <button class="${autoridadRolSel==='dece'?'sel':''}" onclick="seleccionarRolAutoridad('dece')">DECE</button>
         </div>
         <label>Clave de acceso de ${rolLabel}</label>
-        <input type="password" id="autClaveLogin" placeholder="Ej: A3F9K2" style="text-transform:uppercase;" autocomplete="current-password">
+        <input type="password" id="autClaveLogin" name="autClaveLogin_x" value="" placeholder="Ej: A3F9K2" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly'); this.value='';" data-lpignore="true" data-form-type="other" spellcheck="false">
         <div class="sheet-actions">
           <button class="btn" style="flex:1" onclick="enPantallaRegistro=false;render();">Volver</button>
           <button class="btn btn-primary" style="flex:1" onclick="iniciarSesionAutoridad()">Entrar</button>
