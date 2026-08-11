@@ -1,7 +1,7 @@
 {
   "name": "Enlace Escolar - Unidad Educativa Dr. José María Velasco Ibarra",
   "short_name": "Enlace Escolar",
-  "description": "Comunicación académica entre Docentes, Tutores y Representantes.",
+  "description": "Comunicación académica entre Docentes, Tutores, Representantes y Autoridades.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
