@@ -550,6 +550,21 @@
   .input-celular:focus{
     border-color: var(--azul) !important;
   }
+
+  .cfg-search{
+    width:100%;
+    box-sizing:border-box;
+    margin:0 0 10px;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+    font-family:inherit;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+  .cfg-search:focus{outline:none;border-color:var(--azul);}
+  .cfg-row.cfg-hide{display:none;}
 </style>
 </head>
 <body>
@@ -1538,27 +1553,38 @@ async function renderPanelConfig() {
     return;
   }
 
-  const sec = (id, titulo, count, bodyHtml, open) => `
+  const byName = (a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+  const tutores = (data.tutores || []).slice().sort(byName);
+  const docentes = (data.docentes || []).slice().sort(byName);
+  const representantes = (data.representantes || []).slice().sort(byName);
+  const autoridades = (data.autoridades || []).slice().sort(byName);
+
+  const sec = (id, titulo, count, bodyHtml, open, withSearch) => {
+    const search = withSearch
+      ? `<input type="search" class="cfg-search" id="search-${id}" placeholder="Buscar por nombre..." oninput="filtrarCfgSeccion('${id}', this.value)" autocomplete="off">`
+      : '';
+    return `
     <div class="cfg-section ${open ? 'open' : ''}" id="${id}">
       <div class="cfg-section-h" onclick="toggleCfgSection('${id}')">
         <strong>${titulo}</strong>
         <span>${count} registro(s) ▾</span>
       </div>
-      <div class="cfg-section-b">${bodyHtml || '<div class="empty" style="padding:8px 0;">Sin registros.</div>'}</div>
+      <div class="cfg-section-b">${search}${bodyHtml || '<div class="empty" style="padding:8px 0;">Sin registros.</div>'}</div>
     </div>`;
+  };
 
-  const tutoresHtml = (data.tutores || []).map(t => `
-    <div class="cfg-row">
+  const tutoresHtml = tutores.map(t => `
+    <div class="cfg-row" data-nombre="${escapeHtml(String(t.nombre || '').toLowerCase())}">
       <div class="nm">${escapeHtml(t.nombre)}</div>
       <div class="meta">Curso: ${escapeHtml(t.cursoNombre || '—')}${t.claveCurso ? ' · Clave curso: ' + escapeHtml(t.claveCurso) : ''}</div>
       <span class="cfg-key">${escapeHtml(t.claveAcceso || '')}</span>
       <div><button type="button" class="cfg-del-btn" onclick="adminEliminarUsuario('${t.id}','tutor','${String(t.nombre||'').replace(/'/g,"\\'")}')">Eliminar tutor</button></div>
     </div>`).join('');
 
-  const docentesHtml = (data.docentes || []).map(d => {
+  const docentesHtml = docentes.map(d => {
     const cursos = (d.cursos || []).map(c => escapeHtml(c.nombre) + ' — ' + escapeHtml(c.asignatura)).join('<br>') || 'Sin cursos';
     const safe = String(d.nombre||'').replace(/'/g, "\\'");
-    return `<div class="cfg-row">
+    return `<div class="cfg-row" data-nombre="${escapeHtml(String(d.nombre || '').toLowerCase())}">
       <div class="nm">${escapeHtml(d.nombre)}</div>
       <div class="meta">${cursos}</div>
       <span class="cfg-key">${escapeHtml(d.claveAcceso || '')}</span>
@@ -1566,17 +1592,17 @@ async function renderPanelConfig() {
     </div>`;
   }).join('');
 
-  const repsHtml = (data.representantes || []).map(r => {
+  const repsHtml = representantes.map(r => {
     const hijos = (r.estudiantes || []).map(h => escapeHtml(h.nombre) + (h.contacto ? ' · ' + escapeHtml(h.contacto) : '')).join('<br>') || 'Sin estudiantes vinculados';
-    return `<div class="cfg-row">
+    return `<div class="cfg-row" data-nombre="${escapeHtml(String(r.nombre || '').toLowerCase())}">
       <div class="nm">${escapeHtml(r.nombre)}</div>
       <div class="meta">${hijos}</div>
       <span class="cfg-key">${escapeHtml(r.claveAcceso || '')}</span>
     </div>`;
   }).join('');
 
-  const autHtml = (data.autoridades || []).map(a => `
-    <div class="cfg-row">
+  const autHtml = autoridades.map(a => `
+    <div class="cfg-row" data-nombre="${escapeHtml(String(a.nombre || '').toLowerCase())}">
       <div class="nm">${escapeHtml(a.nombre)}</div>
       <div class="meta">${a.rol === 'rector' ? 'Rector' : 'Inspector'}</div>
       <span class="cfg-key">${escapeHtml(a.claveAcceso || '')}</span>
@@ -1592,10 +1618,10 @@ async function renderPanelConfig() {
         <button class="btn" style="flex:1" onclick="salirConfig()">Salir</button>
         <button class="btn btn-primary" style="flex:1" onclick="document.getElementById('ovAdminRegAut').classList.remove('hidden')">+ Autoridad</button>
       </div>
-      ${sec('cfgTut', 'Tutores', (data.tutores||[]).length, tutoresHtml, true)}
-      ${sec('cfgDoc', 'Docentes', (data.docentes||[]).length, docentesHtml, false)}
-      ${sec('cfgRep', 'Representantes', (data.representantes||[]).length, repsHtml, false)}
-      ${sec('cfgAut', 'Autoridades', (data.autoridades||[]).length, autHtml, false)}
+      ${sec('cfgAut', 'Autoridades', autoridades.length, autHtml, true, false)}
+      ${sec('cfgTut', 'Tutores', tutores.length, tutoresHtml, false, true)}
+      ${sec('cfgDoc', 'Docentes', docentes.length, docentesHtml, false, true)}
+      ${sec('cfgRep', 'Representantes', representantes.length, repsHtml, false, true)}
       <div class="cfg-danger">
         <h3>Formatear / nuevo año lectivo</h3>
         <p>Elimina todos los registros (cursos, usuarios, mensajes). La App quedará vacía para empezar de nuevo. Esta acción no se puede deshacer.</p>
@@ -1603,6 +1629,18 @@ async function renderPanelConfig() {
       </div>
     </div>`;
 }
+
+function filtrarCfgSeccion(sectionId, q) {
+  const sec = document.getElementById(sectionId);
+  if (!sec) return;
+  const query = String(q || '').trim().toLowerCase();
+  sec.querySelectorAll('.cfg-row').forEach(row => {
+    const nom = row.getAttribute('data-nombre') || '';
+    if (!query || nom.indexOf(query) !== -1) row.classList.remove('cfg-hide');
+    else row.classList.add('cfg-hide');
+  });
+}
+
 
 function salirConfig() {
   adminKeySession = null;
