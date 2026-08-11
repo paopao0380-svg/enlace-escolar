@@ -310,6 +310,33 @@ def h_estudiantes_de_representante(params, body):
     return 200, {'estudiantes': out}
 
 
+
+def h_cambiar_clave(params, body):
+    uid_user = params['id']
+    u = row('SELECT * FROM usuarios WHERE id = ?', (uid_user,))
+    if not u:
+        raise ApiError(404, 'Usuario no encontrado.')
+    actual = (body.get('claveActual') or '').strip().upper()
+    nueva = (body.get('claveNueva') or '').strip().upper()
+    if not actual or not nueva:
+        raise ApiError(400, 'Ingresa la clave actual y la nueva.')
+    if actual != (u.get('clave_acceso') or '').upper():
+        raise ApiError(403, 'La clave actual no es correcta.')
+    if len(nueva) < 4:
+        raise ApiError(400, 'La nueva clave debe tener al menos 4 caracteres.')
+    if len(nueva) > 20:
+        raise ApiError(400, 'La nueva clave no puede superar 20 caracteres.')
+    if nueva == actual:
+        raise ApiError(400, 'La nueva clave debe ser distinta a la actual.')
+    # solo letras y números
+    if not all(c.isalnum() for c in nueva):
+        raise ApiError(400, 'La clave solo puede tener letras y números (sin espacios).')
+    otro = row('SELECT id FROM usuarios WHERE UPPER(clave_acceso) = ? AND id != ?', (nueva, uid_user))
+    if otro:
+        raise ApiError(409, 'Esa clave ya está en uso. Elige otra.')
+    run('UPDATE usuarios SET clave_acceso = ? WHERE id = ?', (nueva, uid_user))
+    return 200, {'ok': True, 'claveAcceso': nueva}
+
 def h_usuario_por_id(params, body):
     u = row('SELECT * FROM usuarios WHERE id = ?', (params['id'],))
     if not u:
@@ -875,6 +902,7 @@ ROUTES = [
     ('GET', r'^/api/representantes/(?P<id>[^/]+)/mensajes$', h_mensajes_representante),
 
     ('GET', r'^/api/usuarios/(?P<id>[^/]+)$', h_usuario_por_id),
+    ('POST', r'^/api/usuarios/(?P<id>[^/]+)/cambiar-clave$', h_cambiar_clave),
 
     ('POST', r'^/api/mensajes$', h_crear_mensaje),
     ('POST', r'^/api/docentes/mensajes-tutor$', h_mensaje_docente_a_tutor),
