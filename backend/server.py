@@ -550,8 +550,8 @@ def h_crear_autoridad(params, body):
     require_admin(body)
     nombre = (body.get('nombre') or '').strip()
     rol = (body.get('rol') or '').strip().lower()
-    if rol not in ('rector', 'inspector'):
-        raise ApiError(400, 'Rol inválido. Use rector o inspector.')
+    if rol not in ('rector', 'inspector', 'dece'):
+        raise ApiError(400, 'Rol inválido. Use rector, inspector o dece.')
     if not nombre:
         raise ApiError(400, 'Ingresa tu nombre.')
     clave = codigo6()
@@ -564,7 +564,7 @@ def h_login_autoridad(params, body):
     clave = (body.get('claveAcceso') or '').strip().upper()
     if not clave:
         raise ApiError(400, 'Ingresa tu clave de acceso.')
-    u = row("SELECT * FROM usuarios WHERE clave_acceso = ? AND rol IN ('rector','inspector')", (clave,))
+    u = row("SELECT * FROM usuarios WHERE clave_acceso = ? AND rol IN ('rector','inspector','dece')", (clave,))
     if not u:
         raise ApiError(401, 'Clave incorrecta o usuario no registrado.')
     return 200, {'usuario': ser_usuario(u)}
@@ -627,7 +627,7 @@ def h_crear_mensaje_institucional(params, body):
     if destino_tipo in ('tutor', 'docente') and not destino_id:
         raise ApiError(400, 'Selecciona el destinatario.')
     rem = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
-    if not rem or rem['rol'] not in ('rector', 'inspector'):
+    if not rem or rem['rol'] not in ('rector', 'inspector', 'dece'):
         raise ApiError(403, 'Solo Rector o Inspector pueden enviar este tipo de mensaje.')
     mid = uid('mi')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -748,7 +748,7 @@ def h_admin_resumen(params, body):
             'estudiantes': [{'nombre': h['nombre'], 'contacto': h['contacto'] or ''} for h in hijos],
         })
     autoridades = []
-    for u in rows("SELECT * FROM usuarios WHERE rol IN ('rector','inspector') ORDER BY rol, nombre"):
+    for u in rows("SELECT * FROM usuarios WHERE rol IN ('rector','inspector','dece') ORDER BY rol, nombre"):
         autoridades.append({
             'id': u['id'],
             'nombre': u['nombre'],
@@ -767,8 +767,8 @@ def h_admin_crear_autoridad(params, body):
     require_admin(body)
     nombre = (body.get('nombre') or '').strip()
     rol = (body.get('rol') or '').strip().lower()
-    if rol not in ('rector', 'inspector'):
-        raise ApiError(400, 'Rol inválido. Use rector o inspector.')
+    if rol not in ('rector', 'inspector', 'dece'):
+        raise ApiError(400, 'Rol inválido. Use rector, inspector o dece.')
     if not nombre:
         raise ApiError(400, 'Ingresa el nombre de la autoridad.')
     clave = codigo6()
@@ -787,6 +787,38 @@ def h_admin_borrar_usuario(params, body):
     if rol == 'tutor':
         return h_borrar_tutor({'id': uid_del}, body)
     return h_borrar_docente({'id': uid_del}, body)
+
+
+def h_admin_editar_autoridad(params, body):
+    require_admin(body)
+    aid = (body.get('id') or '').strip()
+    nombre = (body.get('nombre') or '').strip()
+    rol = (body.get('rol') or '').strip().lower()
+    if not aid or not nombre:
+        raise ApiError(400, 'Indica el usuario y el nombre.')
+    if rol not in ('rector', 'inspector', 'dece'):
+        raise ApiError(400, 'Rol inválido. Use rector, inspector o dece.')
+    u = row("SELECT * FROM usuarios WHERE id = ? AND rol IN ('rector','inspector','dece')", (aid,))
+    if not u:
+        raise ApiError(404, 'Autoridad no encontrada.')
+    run('UPDATE usuarios SET nombre = ?, rol = ? WHERE id = ?', (nombre, rol, aid))
+    return 200, {'ok': True, 'id': aid, 'nombre': nombre, 'rol': rol}
+
+
+def h_admin_borrar_autoridad(params, body):
+    require_admin(body)
+    aid = (body.get('id') or '').strip()
+    if not aid:
+        raise ApiError(400, 'Indica la autoridad a eliminar.')
+    u = row("SELECT * FROM usuarios WHERE id = ? AND rol IN ('rector','inspector','dece')", (aid,))
+    if not u:
+        raise ApiError(404, 'Autoridad no encontrada.')
+    try:
+        run("DELETE FROM mensajes_institucionales WHERE remitente_id = ?", (aid,))
+    except Exception:
+        pass
+    run('DELETE FROM usuarios WHERE id = ?', (aid,))
+    return 200, {'ok': True}
 
 def h_admin_borrar_todo(params, body):
     require_admin(body)
@@ -857,6 +889,8 @@ ROUTES = [
     ('POST', r'^/api/admin/login$', h_admin_login),
     ('POST', r'^/api/admin/resumen$', h_admin_resumen),
     ('POST', r'^/api/admin/autoridades$', h_admin_crear_autoridad),
+    ('POST', r'^/api/admin/autoridades/editar$', h_admin_editar_autoridad),
+    ('POST', r'^/api/admin/autoridades/borrar$', h_admin_borrar_autoridad),
     ('POST', r'^/api/admin/borrar-todo$', h_admin_borrar_todo),
     ('POST', r'^/api/admin/borrar-usuario$', h_admin_borrar_usuario),
     ('GET', r'^/api/salud$', h_salud),
