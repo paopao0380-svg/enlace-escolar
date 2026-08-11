@@ -97,7 +97,7 @@
   .sheet{width:390px;max-width:100%;background:var(--card);border-radius:18px 18px 0 0;padding:18px 18px 22px;max-height:82vh;overflow-y:auto;}
   .sheet h3{font-family:'Fraunces',serif;font-size:17px;margin:0 0 4px;}
   label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:500;}
-  input[type=text],select,textarea{width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);}
+  input[type=text],input[type=tel],input[type=password],select,textarea{width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);}
   textarea{resize:none;min-height:70px;}
   .typebar{display:flex;gap:6px;margin-top:4px;}
   .typebar button{flex:1;font-size:11.5px;padding:8px 4px;border-radius:8px;border:1px solid var(--line);background:var(--paper);cursor:pointer;color:var(--muted);font-weight:500;}
@@ -195,7 +195,7 @@
     .rolecard .illus{width:92px;min-width:92px;height:78px;}
     .rolecard .rc-titulo{font-size:20px;}
     .rolecard .rc-subtitulo{font-size:13px;}
-    input[type=text],select,textarea{font-size:16px;}
+    input[type=text],input[type=tel],input[type=password],select,textarea{font-size:16px;}
     label{font-size:13px;}
   }
 
@@ -530,11 +530,25 @@
   .cfg-del-btn:active{opacity:0.85;}
 
 
+  input[type=tel].input-celular,
   input.input-celular,
   .input-celular{
-    width: 52% !important;
-    max-width: 170px !important;
-    box-sizing: border-box;
+    width: 48% !important;
+    max-width: 160px !important;
+    min-width: 140px;
+    box-sizing: border-box !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 13.5px !important;
+    padding: 9px 10px !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 8px !important;
+    background: var(--paper) !important;
+    color: var(--ink) !important;
+    outline: none;
+  }
+  input[type=tel].input-celular:focus,
+  .input-celular:focus{
+    border-color: var(--azul) !important;
   }
 </style>
 </head>
@@ -552,7 +566,7 @@
     <label>Nombre del estudiante</label>
     <input type="text" id="editEstNombre" placeholder="Nombre completo">
     <label>Celular del representante</label>
-    <input type="tel" id="editRepContacto" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
+    <input type="tel" id="editRepContacto" class="input-celular" placeholder="Ej: 0991234567" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="tel">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovEditarEstudiante')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionEstudiante()">Guardar</button>
@@ -619,7 +633,7 @@
     <h3>Vincular a un estudiante</h3>
     <p class="helptext">Ingresa tu celular y el código de invitación de 6 caracteres que te compartió el Tutor.</p>
     <label>Celular</label>
-    <input type="tel" id="vincCelular" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
+    <input type="tel" id="vincCelular" class="input-celular" placeholder="Ej: 0991234567" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="tel">
     <label>Código de invitación</label>
     <input type="text" id="vincCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">
     <div class="sheet-actions">
@@ -1137,7 +1151,7 @@ function renderPantallaRepresentante() {
       <label>Tu nombre</label>
       <input type="text" id="repNombre2" placeholder="Nombre y apellido">
       <label>Celular</label>
-      <input type="tel" id="repCelular" class="input-celular" placeholder="10 dígitos" maxlength="10" inputmode="numeric" pattern="[0-9]*">
+      <input type="tel" id="repCelular" class="input-celular" placeholder="Ej: 0991234567" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="tel">
       <label>Código de invitación del estudiante</label>
       <input type="text" id="repCodigo" placeholder="Ej: A3F9K2" style="text-transform:uppercase;">`;
   }
