@@ -152,7 +152,11 @@ def h_editar_estudiante(params, body):
     nombre = (body.get('nombre') or '').strip()
     if not nombre:
         raise ApiError(400, 'El nombre del estudiante es obligatorio.')
-    run("UPDATE estudiantes SET nombre = ? WHERE id = ?", (nombre, eid))
+    if 'representanteContacto' in body:
+        contacto = ''.join(ch for ch in str(body.get('representanteContacto') or '') if ch.isdigit())[:10]
+        run("UPDATE estudiantes SET nombre = ?, representante_contacto = ? WHERE id = ?", (nombre, contacto, eid))
+    else:
+        run("UPDATE estudiantes SET nombre = ? WHERE id = ?", (nombre, eid))
     est2 = row('SELECT * FROM estudiantes WHERE id = ?', (eid,))
     d = ser_estudiante(est2)
     d['representanteContacto'] = est2.get('representante_contacto') or ''
