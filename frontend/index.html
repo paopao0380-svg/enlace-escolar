@@ -565,6 +565,10 @@
   }
   .cfg-search:focus{outline:none;border-color:var(--azul);}
   .cfg-row.cfg-hide{display:none;}
+
+  input.input-mayus{
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
@@ -579,7 +583,7 @@
     <p class="helptext">Puedes corregir el nombre del estudiante y el celular del representante.</p>
     <input type="hidden" id="editEstId">
     <label>Nombre del estudiante</label>
-    <input type="text" id="editEstNombre" placeholder="Nombre completo">
+    <input class="input-mayus" type="text" id="editEstNombre" placeholder="Nombre completo">
     <label>Celular del representante</label>
     <input type="tel" id="editRepContacto" class="input-celular" placeholder="Ej: 0991234567" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="tel">
     <div class="sheet-actions">
@@ -607,7 +611,7 @@
     <div class="stu-meta" id="ovRegistrarSub"></div>
     <p class="helptext">Solo el nombre del estudiante. Se generará un código para que el representante se vincule.</p>
     <label>Nombre del estudiante</label>
-    <input type="text" id="regNombre" placeholder="Nombre y apellido">
+    <input class="input-mayus" type="text" id="regNombre" placeholder="Nombre y apellido">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovRegistrar')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEstudiante()">Guardar</button>
@@ -750,7 +754,7 @@
       <option value="dece">DECE</option>
     </select>
     <label>Nombre completo</label>
-    <input type="text" id="editAutNombre" placeholder="Nombre y apellido">
+    <input class="input-mayus" type="text" id="editAutNombre" placeholder="Nombre y apellido">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovAdminEditAut')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="guardarEdicionAutoridad()">Guardar</button>
@@ -769,7 +773,7 @@
       <option value="dece">DECE</option>
     </select>
     <label>Nombre completo</label>
-    <input type="text" id="adminAutNombre" placeholder="Nombre y apellido">
+    <input class="input-mayus" type="text" id="adminAutNombre" placeholder="Nombre y apellido">
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovAdminRegAut')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="adminRegistrarAutoridad()">Registrar</button>
@@ -866,6 +870,9 @@ document.addEventListener('input', function(ev) {
     soloDigitosCelular(t);
   }
 });
+function mayusNombre(s) {
+  return String(s || '').trim().toUpperCase();
+}
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1016,9 +1023,9 @@ function renderPantallaTutor() {
     area.innerHTML = `
       <div class="authsub">Vas a crear tu curso y una clave propia que usarán tus docentes para vincularse.</div>
       <label>Tu nombre</label>
-      <input type="text" id="tutNombre" placeholder="Nombre y apellido">
+      <input class="input-mayus" type="text" id="tutNombre" class="input-mayus" style="text-transform:uppercase;" placeholder="Nombre y apellido">
       <label>Nombre del curso</label>
-      <input type="text" id="tutCurso" placeholder='Ej: 1ro de DS "A"'>
+      <input class="input-mayus" type="text" id="tutCurso" placeholder='Ej: 1ro de DS "A"'>
       <p class="helptext">Al crear tu curso se generará una clave única. La necesitarás para confirmar tu ingreso ahora, y los docentes la usarán para vincularse.</p>`;
   }
 }
@@ -1037,8 +1044,8 @@ async function iniciarSesionTutor() {
 }
 
 async function crearCuentaTutor() {
-  const nombre = document.getElementById('tutNombre').value.trim();
-  const cursoNombre = document.getElementById('tutCurso').value.trim();
+  const nombre = mayusNombre(document.getElementById('tutNombre').value);
+  const cursoNombre = mayusNombre(document.getElementById('tutCurso').value);
   if (!nombre || !cursoNombre) { showToast('Completa tu nombre y el nombre del curso.'); return; }
   try {
     const r = await api('POST', '/api/tutores', { nombre, cursoNombre });
@@ -1085,7 +1092,7 @@ function renderPantallaDocente() {
     area.innerHTML = `
       <div class="authsub">Ingresa la clave de cada curso donde das clase, junto con la asignatura. Puedes agregar más de uno.</div>
       <label>Tu nombre</label>
-      <input type="text" id="docNombre" placeholder="Nombre y apellido">
+      <input class="input-mayus" type="text" id="docNombre" placeholder="Nombre y apellido">
       <div id="cursosDocenteRows" style="margin-top:10px;"></div>
       <button class="linkbtn" onclick="agregarFilaCursoDocente()">+ Agregar otro curso</button>`;
     docenteFilaCount = 0;
@@ -1130,7 +1137,7 @@ async function iniciarSesionDocente() {
 }
 
 async function crearCuentaDocente() {
-  const nombre = document.getElementById('docNombre').value.trim();
+  const nombre = mayusNombre(document.getElementById('docNombre').value);
   if (!nombre) { showToast('Escribe tu nombre.'); return; }
   const filas = document.querySelectorAll('#cursosDocenteRows > div');
   const cursos = [];
@@ -1186,7 +1193,7 @@ function renderPantallaRepresentante() {
     area.innerHTML = `
       <div class="authsub">Ingresa tus datos y el código de invitación que te compartió el Tutor.</div>
       <label>Tu nombre</label>
-      <input type="text" id="repNombre2" placeholder="Nombre y apellido">
+      <input class="input-mayus" type="text" id="repNombre2" class="input-mayus" placeholder="Nombre y apellido" style="text-transform:uppercase;">
       <label>Celular</label>
       <input type="tel" id="repCelular" class="input-celular" placeholder="Ej: 0991234567" maxlength="10" inputmode="numeric" pattern="[0-9]*" autocomplete="tel">
       <label>Código de invitación del estudiante</label>
@@ -1208,7 +1215,7 @@ async function iniciarSesionRepresentante() {
 }
 
 async function crearCuentaRepresentante() {
-  const nombre = document.getElementById('repNombre2').value.trim();
+  const nombre = mayusNombre(document.getElementById('repNombre2').value);
   const celular = String((document.getElementById('repCelular') || {}).value || '').replace(/\D/g, '').slice(0, 10);
   const codigo = document.getElementById('repCodigo').value.trim().toUpperCase();
   if (!nombre || !celular || !codigo) { showToast('Completa tu nombre, celular y el código de invitación.'); return; }
@@ -1725,7 +1732,7 @@ function abrirEditarAutoridad(id, nombre, rol) {
 
 async function guardarEdicionAutoridad() {
   const id = document.getElementById('editAutId').value;
-  const nombre = (document.getElementById('editAutNombre').value || '').trim();
+  const nombre = mayusNombre(document.getElementById('editAutNombre').value);
   const rol = document.getElementById('editAutRol').value;
   if (!nombre) { showToast('Ingresa el nombre.'); return; }
   try {
@@ -1752,7 +1759,7 @@ async function adminEliminarAutoridad(id, nombre) {
 }
 
 async function adminRegistrarAutoridad() {
-  const nombre = (document.getElementById('adminAutNombre').value || '').trim();
+  const nombre = mayusNombre(document.getElementById('adminAutNombre').value);
   const rol = document.getElementById('adminAutRol').value;
   if (!nombre) { showToast('Ingresa el nombre.'); return; }
   try {
@@ -2170,7 +2177,7 @@ async function abrirEditarEstudiante(estId) {
 
 async function guardarEdicionEstudiante() {
   const id = document.getElementById('editEstId').value;
-  const nombre = (document.getElementById('editEstNombre').value || '').trim();
+  const nombre = mayusNombre(document.getElementById('editEstNombre').value);
   const contacto = String((document.getElementById('editRepContacto') || {}).value || '').replace(/\D/g, '').slice(0, 10);
   if (!nombre) {
     showToast('Completa el nombre del estudiante.');
@@ -2215,7 +2222,7 @@ function abrirRegistro() {
 function closeOv(id) { document.getElementById(id).classList.add('hidden'); }
 
 async function guardarEstudiante() {
-  const nombre = document.getElementById('regNombre').value.trim();
+  const nombre = mayusNombre(document.getElementById('regNombre').value);
   if (!nombre) { showToast('Ingresa el nombre del estudiante.'); return; }
   try {
     const r = await api('POST', '/api/estudiantes', {
