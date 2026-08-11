@@ -1782,13 +1782,14 @@ const tabsByRole = {
   tutor: [{ id: 'inicio', label: 'Curso' }, { id: 'mensajes', label: 'Mensajes' }],
   representante: [{ id: 'inicio', label: 'Mi(s) hijo(s)' }, { id: 'mensajes', label: 'Recibidos' }],
   rector: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }],
-  inspector: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }]
+  inspector: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }],
+  dece: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }]
 };
 
 function cambiarTab(t) { currentTab = t; render(); }
 
 async function renderApp(root) {
-  const tabs = tabsByRole[me.rol];
+  const tabs = tabsByRole[me.rol] || tabsByRole.rector;
 
   let mensajesList = [];
   let mensajesInst = [];
