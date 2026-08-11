@@ -805,6 +805,24 @@
   </div>
 </div>
 
+
+<div class="overlay hidden" id="ovCambiarClave">
+  <div class="sheet">
+    <h3>Cambiar clave de acceso</h3>
+    <p class="helptext">Elige una clave fácil de recordar (letras y números, mínimo 4). Se guardará en mayúsculas.</p>
+    <label>Clave actual</label>
+    <input type="text" id="claveActualInput" placeholder="Tu clave actual" style="text-transform:uppercase;" autocomplete="off">
+    <label>Nueva clave</label>
+    <input type="text" id="claveNuevaInput" placeholder="Ej: MIHIJO2026" style="text-transform:uppercase;" autocomplete="off">
+    <label>Confirmar nueva clave</label>
+    <input type="text" id="claveNueva2Input" placeholder="Repite la nueva clave" style="text-transform:uppercase;" autocomplete="off">
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovCambiarClave')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="guardarNuevaClave()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -937,6 +955,33 @@ function renderAuth(root) {
         </div>
       </div>
     </div>`;
+}
+
+
+function abrirCambiarClave() {
+  if (!me) return;
+  document.getElementById('claveActualInput').value = '';
+  document.getElementById('claveNuevaInput').value = '';
+  document.getElementById('claveNueva2Input').value = '';
+  document.getElementById('ovCambiarClave').classList.remove('hidden');
+}
+
+async function guardarNuevaClave() {
+  const actual = (document.getElementById('claveActualInput').value || '').trim().toUpperCase();
+  const nueva = (document.getElementById('claveNuevaInput').value || '').trim().toUpperCase();
+  const nueva2 = (document.getElementById('claveNueva2Input').value || '').trim().toUpperCase();
+  if (!actual || !nueva || !nueva2) { showToast('Completa todos los campos.'); return; }
+  if (nueva !== nueva2) { showToast('La confirmación no coincide.'); return; }
+  if (nueva.length < 4) { showToast('La nueva clave debe tener al menos 4 caracteres.'); return; }
+  try {
+    const r = await api('POST', '/api/usuarios/' + me.id + '/cambiar-clave', {
+      claveActual: actual,
+      claveNueva: nueva,
+    });
+    closeOv('ovCambiarClave');
+    if (me) me.claveAcceso = r.claveAcceso || nueva;
+    showToast('Clave actualizada. Úsala la próxima vez que ingreses.');
+  } catch (e) { showToast(e.message); }
 }
 
 async function cerrarSesion() {
@@ -1836,6 +1881,7 @@ async function renderApp(root) {
           <div class="user-name">${(me.nombre||'').trim()}</div>
           <div class="user-role">${({tutor:'Tutor',docente:'Docente',representante:'Representante',rector:'Rector',inspector:'Inspector',dece:'DECE'}[me.rol]||me.rol)}</div>
         </div>
+        <button type="button" class="btn-salir" onclick="abrirCambiarClave()" title="Cambiar clave de acceso">Clave</button>
         <button type="button" class="btn-salir" onclick="cerrarSesion()" title="Cerrar sesión">Salir</button>
       </div>
       
