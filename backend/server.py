@@ -22,6 +22,12 @@ con = get_conn()
 # ---------- helpers de base de datos ----------
 from db import execute, execute_write
 
+
+def mayus_nombre(s):
+    """Normaliza nombres a mayúsculas (español)."""
+    return (s or '').strip().upper()
+
+
 def row(sql, params=()):
     cols, data = execute(sql, params)
     if not data:
@@ -79,8 +85,8 @@ class ApiError(Exception):
 
 # ---------- handlers ----------
 def h_crear_tutor(params, body):
-    nombre = (body.get('nombre') or '').strip()
-    curso_nombre = (body.get('cursoNombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
+    curso_nombre = mayus_nombre(body.get('cursoNombre'))
     if not nombre or not curso_nombre:
         raise ApiError(400, 'Completa tu nombre y el nombre del curso.')
     clave = codigo6()
@@ -103,7 +109,7 @@ def h_login_tutor(params, body):
 def h_crear_estudiante(params, body):
     tutor_id = body.get('tutorId')
     curso_id = body.get('cursoId')
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     if not tutor_id or not curso_id or not nombre:
         raise ApiError(400, 'Ingresa el nombre del estudiante.')
     eid = uid('e')
@@ -149,7 +155,7 @@ def h_editar_estudiante(params, body):
     tutor_id = body.get('tutorId')
     if not tutor_id or est['tutor_id'] != tutor_id:
         raise ApiError(403, 'Solo el Tutor de este curso puede editar al estudiante.')
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     if not nombre:
         raise ApiError(400, 'El nombre del estudiante es obligatorio.')
     if 'representanteContacto' in body:
@@ -178,7 +184,7 @@ def h_borrar_estudiante(params, body):
 
 
 def h_crear_docente(params, body):
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     cursos = body.get('cursos') or []
     if not nombre or not isinstance(cursos, list) or len(cursos) == 0:
         raise ApiError(400, 'Ingresa tu nombre y al menos un curso con su clave y asignatura.')
@@ -248,7 +254,7 @@ def h_quitar_curso_docente(params, body):
 
 
 def h_crear_representante(params, body):
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     codigo = (body.get('codigoInvitacion') or '').strip().upper()
     contacto = (body.get('contacto') or body.get('celular') or '').strip()
     if not nombre or not codigo or not contacto:
@@ -548,7 +554,7 @@ def h_mensaje_docente_a_tutor(params, body):
 def h_crear_autoridad(params, body):
     # Solo desde configuración (adminKey)
     require_admin(body)
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     rol = (body.get('rol') or '').strip().lower()
     if rol not in ('rector', 'inspector', 'dece'):
         raise ApiError(400, 'Rol inválido. Use rector, inspector o dece.')
@@ -765,7 +771,7 @@ def h_admin_resumen(params, body):
 
 def h_admin_crear_autoridad(params, body):
     require_admin(body)
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     rol = (body.get('rol') or '').strip().lower()
     if rol not in ('rector', 'inspector', 'dece'):
         raise ApiError(400, 'Rol inválido. Use rector, inspector o dece.')
@@ -792,7 +798,7 @@ def h_admin_borrar_usuario(params, body):
 def h_admin_editar_autoridad(params, body):
     require_admin(body)
     aid = (body.get('id') or '').strip()
-    nombre = (body.get('nombre') or '').strip()
+    nombre = mayus_nombre(body.get('nombre'))
     rol = (body.get('rol') or '').strip().lower()
     if not aid or not nombre:
         raise ApiError(400, 'Indica el usuario y el nombre.')
