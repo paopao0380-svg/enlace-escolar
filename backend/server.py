@@ -85,7 +85,11 @@ class ApiError(Exception):
 
 # ---------- Notificaciones Push (Web Push) ----------
 VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "BPKuR-cqJQMe-gClAbNXgs4PGye7LJY9xXiAWDIWHZAoSDsKIhx8dFEJ4Q2we8xcNe4UZXEoS-cLbWKtYPjoCY0")
-VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "38VubrV83DXu-RQlN4LEmfapdmHmOTOFP7ib9VQLGcg")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", """-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg38VubrV83DXu+RQl
+N4LEmfapdmHmOTOFP7ib9VQLGcihRANCAATyrkfnKiUDHvoApQGzV4LODxsnuyyW
+PcV4gFgyFh2QKEg7CiIcfHRRCeENsHvMXDXuFGVxKEvnC21irWD46AmN
+-----END PRIVATE KEY-----""")
 VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_MAILTO", "mailto:enlace-escolar@example.com")
 
 try:
@@ -118,11 +122,16 @@ def guardar_suscripcion(usuario_id, subscription):
 
 
 def enviar_push_a_usuario(usuario_id, titulo, cuerpo, data=None):
-    if not PUSH_AVAILABLE or not usuario_id:
+    if not usuario_id:
+        return
+    if not PUSH_AVAILABLE:
+        print("push skip: pywebpush no disponible")
         return
     lista = rows("SELECT * FROM dispositivos_push WHERE usuario_id = ?", (usuario_id,))
     if not lista:
+        print("push skip: sin dispositivos para", usuario_id)
         return
+    print("push enviando a", usuario_id, "dispositivos", len(lista))
     payload = json.dumps({
         "title": titulo or "Enlace Escolar",
         "body": (cuerpo or "Tienes un mensaje nuevo")[:180],
@@ -201,6 +210,18 @@ def h_push_subscribe(params, body):
     guardar_suscripcion(usuario_id, subscription)
     return 200, {"ok": True}
 
+
+
+def h_push_test(params, body):
+    """Envía una notificación de prueba al usuario indicado."""
+    usuario_id = body.get('usuarioId') or body.get('usuario_id')
+    if not usuario_id:
+        raise ApiError(400, 'Falta usuarioId')
+    lista = rows('SELECT * FROM dispositivos_push WHERE usuario_id = ?', (usuario_id,))
+    if not lista:
+        return 200, {'ok': False, 'error': 'No hay dispositivo registrado. Activa las notificaciones en la App primero.', 'pushAvailable': PUSH_AVAILABLE}
+    enviar_push_a_usuario(usuario_id, 'Enlace Escolar', 'Prueba de aviso: si ves esto, las notificaciones funcionan.', {'tipo': 'test'})
+    return 200, {'ok': True, 'dispositivos': len(lista), 'pushAvailable': PUSH_AVAILABLE}
 
 def h_push_unsubscribe(params, body):
     usuario_id = body.get("usuarioId") or body.get("usuario_id")
@@ -1089,6 +1110,7 @@ ROUTES = [
     ('GET', r'^/api/push/vapid-public-key$', h_push_vapid_public),
     ('POST', r'^/api/push/subscribe$', h_push_subscribe),
     ('POST', r'^/api/push/unsubscribe$', h_push_unsubscribe),
+    ('POST', r'^/api/push/test$', h_push_test),
 
     ('POST', r'^/api/tutores$', h_crear_tutor),
     ('POST', r'^/api/tutores/login$', h_login_tutor),
