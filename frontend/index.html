@@ -986,7 +986,7 @@ async function render() {
     try {
       const r = await api('GET', `/api/usuarios/${session.usuarioId}`);
       me = r.usuario;
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+      try { setTimeout(function(){ activarNotificacionesPush(me.id, false); }, 600); } catch (_e) {}
     } catch (e) {
       session = null; guardarSesionLocal(); renderAuth(root); return;
     }
@@ -1165,7 +1165,7 @@ async function iniciarSesionTutor() {
     const r = await api('POST', '/api/tutores/login', { claveCurso: clave, claveAcceso: clave });
     session = { usuarioId: r.usuario.id };
     me = r.usuario;
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
     guardarSesionLocal();
     currentTab = 'inicio';
     render();
@@ -1260,7 +1260,7 @@ async function iniciarSesionDocente() {
     const r = await api('POST', '/api/docentes/login', { claveAcceso: clave });
     session = { usuarioId: r.usuario.id };
     me = r.usuario;
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
     guardarSesionLocal();
     currentTab = 'inicio';
     docenteCursoActivo = null;
@@ -1342,7 +1342,7 @@ async function iniciarSesionRepresentante() {
     const r = await api('POST', '/api/representantes/login', { claveAcceso: clave });
     session = { usuarioId: r.usuario.id };
     me = r.usuario;
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
     guardarSesionLocal();
     currentTab = 'inicio';
     render();
@@ -1380,7 +1380,7 @@ async function confirmarClaveCurso() {
   closeOv('ovClaveCurso');
   session = { usuarioId: claveCursoContext.usuarioId };
   me = { id: claveCursoContext.usuarioId, nombre: claveCursoContext.nombre, rol: 'tutor', cursoId: claveCursoContext.cursoId };
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
   guardarSesionLocal();
   currentTab = 'inicio';
   claveCursoContext = null;
@@ -1405,7 +1405,7 @@ async function continuarClaveNueva() {
   closeOv('ovClaveNueva');
   session = { usuarioId: claveNuevaContext.usuarioId };
   me = { id: claveNuevaContext.usuarioId, nombre: claveNuevaContext.nombre, rol: claveNuevaContext.rol };
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
   guardarSesionLocal();
   currentTab = 'inicio';
   claveNuevaContext = null;
@@ -1462,7 +1462,7 @@ async function iniciarSesionAutoridad() {
     const r = await api('POST', '/api/autoridades/login', { claveAcceso: clave });
     session = { usuarioId: r.usuario.id };
     me = r.usuario;
-    try { activarNotificacionesPush(me.id); } catch (_e) {}
+    try { activarNotificacionesPush(me.id, false); } catch (_e) {}
     guardarSesionLocal();
     currentTab = 'inicio';
     enPantallaRegistro = false;
@@ -2518,8 +2518,10 @@ init();
 
 
 
+
 /* ===== Notificaciones Push ===== */
 const VAPID_PUBLIC_KEY = "BPKuR-cqJQMe-gClAbNXgs4PGye7LJY9xXiAWDIWHZAoSDsKIhx8dFEJ4Q2we8xcNe4UZXEoS-cLbWKtYPjoCY0";
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -2528,14 +2530,48 @@ function urlBase64ToUint8Array(base64String) {
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }
-async function activarNotificacionesPush(usuarioId) {
+
+function pushSoportado() {
+  return ('Notification' in window) && ('serviceWorker' in navigator) && ('PushManager' in window);
+}
+
+function pushYaActivo() {
+  try { return localStorage.getItem('ee_push_ok') === '1'; } catch (e) { return false; }
+}
+
+function marcarPushActivo() {
+  try { localStorage.setItem('ee_push_ok', '1'); } catch (e) {}
+}
+
+/** silent=true: no muestra toasts ni pide permiso si está en default (espera botón). */
+async function activarNotificacionesPush(usuarioId, forzar) {
+  if (!usuarioId) return false;
+  if (!pushSoportado()) {
+    if (forzar) showToast('Este celular/navegador no soporta avisos push. Usa Chrome en Android e instala la App.');
+    return false;
+  }
   try {
-    if (!usuarioId) return;
-    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    // Registrar SW si aún no está
+    let reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      reg = await navigator.serviceWorker.register('./service-worker.js');
+    }
+    await navigator.serviceWorker.ready;
+
     let perm = Notification.permission;
-    if (perm === 'default') perm = await Notification.requestPermission();
-    if (perm !== 'granted') return;
-    const reg = await navigator.serviceWorker.ready;
+    if (perm === 'denied') {
+      if (forzar) showToast('Las notificaciones están bloqueadas. Actívalas en Ajustes del celular → Apps → Chrome → Notificaciones.');
+      return false;
+    }
+    if (perm === 'default') {
+      if (!forzar) return false; // esperar toque del usuario (botón)
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== 'granted') {
+      if (forzar) showToast('No se activaron los avisos. Puedes intentarlo luego.');
+      return false;
+    }
+
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
       sub = await reg.pushManager.subscribe({
@@ -2543,16 +2579,41 @@ async function activarNotificacionesPush(usuarioId) {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
       });
     }
-    await api('POST', '/api/push/subscribe', { usuarioId: usuarioId, subscription: sub.toJSON() });
-    console.log('Notificaciones push activadas');
+    await api('POST', '/api/push/subscribe', {
+      usuarioId: usuarioId,
+      subscription: sub.toJSON()
+    });
+    marcarPushActivo();
+    if (forzar) showToast('Aviso activado: te llegarán notificaciones de mensajes nuevos.');
+    // actualizar banner si existe
+    const b = document.getElementById('pushBanner');
+    if (b) b.remove();
+    return true;
   } catch (e) {
-    console.log('Push no activado:', e && e.message ? e.message : e);
+    console.log('Push error:', e);
+    if (forzar) showToast('No se pudo activar: ' + (e && e.message ? e.message : 'error'));
+    return false;
   }
 }
 
+function htmlBannerPush() {
+  if (!me || !me.id) return '';
+  if (!pushSoportado()) return '';
+  if (Notification.permission === 'granted' && pushYaActivo()) return '';
+  if (Notification.permission === 'denied') {
+    return '<div id="pushBanner" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fff3cd;border:1px solid #f0e0a0;font-size:12.5px;color:#5c4a00;line-height:1.4;">Las notificaciones están bloqueadas en el celular. Actívalas en Ajustes → Apps → Chrome → Notificaciones para recibir avisos de mensajes.</div>';
+  }
+  return '<div id="pushBanner" style="margin:0 0 12px;padding:12px;border-radius:12px;background:#e8f1fb;border:1px solid #b8d0ef;text-align:center;">'
+    + '<div style="font-size:13px;font-weight:600;color:#0a2340;margin-bottom:6px;">Activar avisos de mensajes</div>'
+    + '<div style="font-size:12px;color:#3a5070;margin-bottom:10px;line-height:1.4;">Recibe un aviso en el celular cuando te escriban (como WhatsApp).</div>'
+    + '<button type="button" class="btn btn-primary btn-block" style="padding:10px;" onclick="activarNotificacionesPush(me.id, true)">Permitir notificaciones</button>'
+    + '</div>';
+}
+
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').then((reg) => {
+    navigator.serviceWorker.register('./service-worker.js').then((reg) => {
       reg.update().catch(() => {});
     }).catch((e) => console.warn('Service worker no registrado:', e));
   });
