@@ -604,6 +604,19 @@
     margin-top:1px;
   }
 
+
+  .institname .instit-line3{
+    display:block;
+    line-height:1.2;
+    margin:3px 0 0 0;
+    padding:0;
+    font-size:10px;
+    font-weight:500;
+    letter-spacing:0.06em;
+    text-transform:none;
+    color:rgba(255,255,255,0.72);
+  }
+
 </style>
 </head>
 <body>
@@ -982,7 +995,7 @@ function renderAuth(root) {
     <div class="authwrap">
       <div class="authhero">
         <img class="crest-big" src="${LOGO_SRC}" alt="Escudo">
-        <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span></div>
+        <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span><span class="instit-line3">El Guabo · El Oro · Ecuador</span></div>
         <div class="appname">Enlace<span class="dot">·</span>Escolar</div>
       </div>
       <div class="authbody">
@@ -1940,7 +1953,7 @@ async function renderApp(root) {
       <div class="brand">
         <div class="brand-left"><img class="crest" src="${LOGO_SRC}" alt="Escudo"><span>Enlace<span class="dot">·</span>Escolar</span></div>
       </div>
-      <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span></div>
+      <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span><span class="instit-line3">El Guabo · El Oro · Ecuador</span></div>
       <div class="user-row">
         <div class="user-info">
           <div class="user-name">${(me.nombre||'').trim()}</div>
