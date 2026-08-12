@@ -1,5 +1,5 @@
 // Enlace Escolar SW
-const CACHE_NAME = 'enlace-escolar-v20260812h';
+const CACHE_NAME = 'enlace-escolar-v20260812-nosplash';
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(['./index.html','./manifest.json']).catch(()=>{})));
