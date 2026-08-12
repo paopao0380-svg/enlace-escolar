@@ -820,7 +820,7 @@
 <div class="overlay hidden" id="ovCambiarClave">
   <div class="sheet">
     <h3>Cambiar clave de acceso</h3>
-    <p class="helptext">Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.<br><strong>Tutor:</strong> la clave del curso <u>no cambia</u> y sigue sirviendo para que los Docentes se vinculen al grado. La nueva clave es solo tuya para ingresar.</p>
+    <p class="helptext" id="cambiarClaveHelp">Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.</p>
     <label>Clave actual</label>
     <input type="password" id="claveActualInput" name="claveActualInput_x" value="" placeholder="Tu clave actual" autocomplete="new-password" data-lpignore="true" spellcheck="false">
     <label>Nueva clave</label>
@@ -986,6 +986,14 @@ function renderAuth(root) {
 
 function abrirCambiarClave() {
   if (!me) return;
+  const help = document.getElementById('cambiarClaveHelp');
+  if (help) {
+    if (me.rol === 'tutor') {
+      help.innerHTML = 'Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.<br><strong>Tutor:</strong> la clave del curso <u>no cambia</u> y sigue sirviendo para que los Docentes se vinculen al grado. La nueva clave es solo tuya para ingresar.';
+    } else {
+      help.innerHTML = 'Elige una clave personal para entrar a la App (mín. 4 caracteres). Se guarda en mayúsculas.';
+    }
+  }
   document.getElementById('claveActualInput').value = '';
   document.getElementById('claveNuevaInput').value = '';
   document.getElementById('claveNueva2Input').value = '';
