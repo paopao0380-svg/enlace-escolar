@@ -1,6 +1,6 @@
 // service-worker.js — Enlace Escolar PWA
 // Cache nueva: fuerza actualizar la interfaz instalada en el celular
-const CACHE_NAME = 'enlace-escolar-v20260812-splash';
+const CACHE_NAME = 'enlace-escolar-v20260812d';
 const ARCHIVOS_BASE = [
   './',
   './index.html',
