@@ -2004,14 +2004,26 @@ async function renderApp(root) {
 
   const screen = document.getElementById('screen');
   if (currentTab === 'mensajes') {
-    if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') { await renderMensajesAutoridad(screen); return; }
-    renderMensajes(screen, mensajesList, mensajesInst);
-    return;
+    if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') { await renderMensajesAutoridad(screen); }
+    else { renderMensajes(screen, mensajesList, mensajesInst); }
+  } else if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') {
+    await renderInicioAutoridad(screen);
+  } else if (me.rol === 'docente') {
+    await renderInicioDocente(screen);
+  } else if (me.rol === 'tutor') {
+    await renderInicioTutor(screen);
+  } else {
+    await renderInicioRepresentante(screen);
   }
-  if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') await renderInicioAutoridad(screen);
-  else if (me.rol === 'docente') await renderInicioDocente(screen);
-  else if (me.rol === 'tutor') await renderInicioTutor(screen);
-  else await renderInicioRepresentante(screen);
+  // Banner de notificaciones (arriba de la pantalla)
+  try {
+    if (typeof htmlBannerPush === 'function') {
+      const b = htmlBannerPush();
+      if (b && screen && !document.getElementById('pushBanner')) {
+        screen.insertAdjacentHTML('afterbegin', b);
+      }
+    }
+  } catch (_e) {}
 }
 
 async function renderInicioDocente(screen) {
@@ -2547,28 +2559,25 @@ function marcarPushActivo() {
 async function activarNotificacionesPush(usuarioId, forzar) {
   if (!usuarioId) return false;
   if (!pushSoportado()) {
-    if (forzar) showToast('Este celular/navegador no soporta avisos push. Usa Chrome en Android e instala la App.');
+    if (forzar) showToast('Este celular no soporta avisos. Usa Chrome en Android e instala la App.');
     return false;
   }
   try {
-    // Registrar SW si aún no está
     let reg = await navigator.serviceWorker.getRegistration();
-    if (!reg) {
-      reg = await navigator.serviceWorker.register('./service-worker.js');
-    }
+    if (!reg) reg = await navigator.serviceWorker.register('./service-worker.js');
     await navigator.serviceWorker.ready;
 
     let perm = Notification.permission;
     if (perm === 'denied') {
-      if (forzar) showToast('Las notificaciones están bloqueadas. Actívalas en Ajustes del celular → Apps → Chrome → Notificaciones.');
+      if (forzar) showToast('Notificaciones bloqueadas. Ve a Ajustes del celular → Apps → Chrome → Notificaciones y actívalas.');
       return false;
     }
     if (perm === 'default') {
-      if (!forzar) return false; // esperar toque del usuario (botón)
+      if (!forzar) return false;
       perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
-      if (forzar) showToast('No se activaron los avisos. Puedes intentarlo luego.');
+      if (forzar) showToast('No se activaron los avisos.');
       return false;
     }
 
@@ -2584,8 +2593,28 @@ async function activarNotificacionesPush(usuarioId, forzar) {
       subscription: sub.toJSON()
     });
     marcarPushActivo();
-    if (forzar) showToast('Aviso activado: te llegarán notificaciones de mensajes nuevos.');
-    // actualizar banner si existe
+
+    // Aviso local inmediato (confirma permiso)
+    try {
+      await reg.showNotification('Enlace Escolar', {
+        body: 'Aviso activado. Te avisaremos cuando llegue un mensaje.',
+        icon: './icons/icon-192.png',
+        tag: 'enlace-escolar-ok'
+      });
+    } catch (_n) {
+      try { new Notification('Enlace Escolar', { body: 'Aviso activado correctamente.' }); } catch(__){}
+    }
+
+    // Prueba desde el servidor
+    try {
+      const t = await api('POST', '/api/push/test', { usuarioId: usuarioId });
+      if (t && t.ok && forzar) showToast('Listo: revisa si llegó el aviso de prueba.');
+      else if (forzar && t && !t.ok) showToast(t.error || 'No se pudo enviar la prueba.');
+      else if (forzar) showToast('Aviso activado.');
+    } catch (te) {
+      if (forzar) showToast('Activado en el celular. El servidor aún no envió la prueba: ' + (te.message || ''));
+    }
+
     const b = document.getElementById('pushBanner');
     if (b) b.remove();
     return true;
@@ -2598,14 +2627,21 @@ async function activarNotificacionesPush(usuarioId, forzar) {
 
 function htmlBannerPush() {
   if (!me || !me.id) return '';
-  if (!pushSoportado()) return '';
-  if (Notification.permission === 'granted' && pushYaActivo()) return '';
+  if (!pushSoportado()) {
+    return '<div id="pushBanner" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fdecea;border:1px solid #f5c2c0;font-size:12.5px;color:#7a1c1c;line-height:1.4;">Este navegador no soporta avisos push. Abre la App en <b>Chrome de Android</b> e instálala.</div>';
+  }
   if (Notification.permission === 'denied') {
-    return '<div id="pushBanner" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fff3cd;border:1px solid #f0e0a0;font-size:12.5px;color:#5c4a00;line-height:1.4;">Las notificaciones están bloqueadas en el celular. Actívalas en Ajustes → Apps → Chrome → Notificaciones para recibir avisos de mensajes.</div>';
+    return '<div id="pushBanner" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#fff3cd;border:1px solid #f0e0a0;font-size:12.5px;color:#5c4a00;line-height:1.4;">Las notificaciones están <b>bloqueadas</b>. En el celular: Ajustes → Apps → Chrome → Notificaciones → Permitir.</div>';
+  }
+  if (Notification.permission === 'granted' && pushYaActivo()) {
+    return '<div id="pushBanner" style="margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#eaf7ee;border:1px solid #b7e0c2;font-size:12.5px;color:#1e5c32;line-height:1.4;display:flex;flex-direction:column;gap:8px;">'
+      + '<span>Avisos activados en este celular.</span>'
+      + '<button type="button" class="btn btn-primary" style="padding:8px 10px;" onclick="activarNotificacionesPush(me.id, true)">Enviar aviso de prueba</button>'
+      + '</div>';
   }
   return '<div id="pushBanner" style="margin:0 0 12px;padding:12px;border-radius:12px;background:#e8f1fb;border:1px solid #b8d0ef;text-align:center;">'
     + '<div style="font-size:13px;font-weight:600;color:#0a2340;margin-bottom:6px;">Activar avisos de mensajes</div>'
-    + '<div style="font-size:12px;color:#3a5070;margin-bottom:10px;line-height:1.4;">Recibe un aviso en el celular cuando te escriban (como WhatsApp).</div>'
+    + '<div style="font-size:12px;color:#3a5070;margin-bottom:10px;line-height:1.4;">Recibe un aviso en el celular cuando te escriban.</div>'
     + '<button type="button" class="btn btn-primary btn-block" style="padding:10px;" onclick="activarNotificacionesPush(me.id, true)">Permitir notificaciones</button>'
     + '</div>';
 }
