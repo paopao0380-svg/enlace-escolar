@@ -147,7 +147,7 @@
     font-size:13px;
     letter-spacing:0.04em;
     color:rgba(255,255,255,0.95);
-    margin-top:8px;
+    margin-top:6px;
     position:relative;
     line-height:1.4;
     font-weight:600;
@@ -580,6 +580,30 @@
     background:var(--paper);
     letter-spacing:0.12em;
   }
+
+  .institname{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0;
+    line-height:1.15;
+  }
+  .institname .instit-line1,
+  .institname .instit-line2{
+    display:block;
+    line-height:1.15;
+    margin:0;
+    padding:0;
+    text-transform:uppercase;
+  }
+  .institname .instit-line1{
+    font-size:0.95em;
+  }
+  .institname .instit-line2{
+    font-size:1em;
+    margin-top:1px;
+  }
+
 </style>
 </head>
 <body>
@@ -958,7 +982,7 @@ function renderAuth(root) {
     <div class="authwrap">
       <div class="authhero">
         <img class="crest-big" src="${LOGO_SRC}" alt="Escudo">
-        <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
+        <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span></div>
         <div class="appname">Enlace<span class="dot">·</span>Escolar</div>
       </div>
       <div class="authbody">
@@ -1916,7 +1940,7 @@ async function renderApp(root) {
       <div class="brand">
         <div class="brand-left"><img class="crest" src="${LOGO_SRC}" alt="Escudo"><span>Enlace<span class="dot">·</span>Escolar</span></div>
       </div>
-      <div class="institname">Unidad Educativa Dr. José María Velasco Ibarra</div>
+      <div class="institname"><span class="instit-line1">UNIDAD EDUCATIVA</span><span class="instit-line2">DR. JOSÉ MARÍA VELASCO IBARRA</span></div>
       <div class="user-row">
         <div class="user-info">
           <div class="user-name">${(me.nombre||'').trim()}</div>
