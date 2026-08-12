@@ -1,5 +1,5 @@
 // Enlace Escolar SW
-const CACHE_NAME = 'enlace-escolar-v20260812f';
+const CACHE_NAME = 'enlace-escolar-v20260812g';
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(['./index.html','./manifest.json']).catch(()=>{})));
