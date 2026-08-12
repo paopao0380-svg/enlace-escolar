@@ -83,6 +83,133 @@ class ApiError(Exception):
         self.message = message
 
 
+# ---------- Notificaciones Push (Web Push) ----------
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "BPKuR-cqJQMe-gClAbNXgs4PGye7LJY9xXiAWDIWHZAoSDsKIhx8dFEJ4Q2we8xcNe4UZXEoS-cLbWKtYPjoCY0")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "38VubrV83DXu-RQlN4LEmfapdmHmOTOFP7ib9VQLGcg")
+VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_MAILTO", "mailto:enlace-escolar@example.com")
+
+try:
+    from pywebpush import webpush
+    PUSH_AVAILABLE = True
+except ImportError:
+    PUSH_AVAILABLE = False
+    print("AVISO: pywebpush no instalado. Notificaciones push desactivadas. pip install pywebpush")
+
+
+def guardar_suscripcion(usuario_id, subscription):
+    if not usuario_id or not subscription:
+        return
+    endpoint = (subscription.get("endpoint") or "").strip()
+    if not endpoint:
+        return
+    keys = subscription.get("keys") or {}
+    token = json.dumps({
+        "endpoint": endpoint,
+        "keys": {
+            "p256dh": keys.get("p256dh", ""),
+            "auth": keys.get("auth", ""),
+        },
+    }, ensure_ascii=False)
+    run("DELETE FROM dispositivos_push WHERE usuario_id = ?", (usuario_id,))
+    run(
+        "INSERT INTO dispositivos_push (id, usuario_id, token) VALUES (?,?,?)",
+        (uid("push"), usuario_id, token),
+    )
+
+
+def enviar_push_a_usuario(usuario_id, titulo, cuerpo, data=None):
+    if not PUSH_AVAILABLE or not usuario_id:
+        return
+    lista = rows("SELECT * FROM dispositivos_push WHERE usuario_id = ?", (usuario_id,))
+    if not lista:
+        return
+    payload = json.dumps({
+        "title": titulo or "Enlace Escolar",
+        "body": (cuerpo or "Tienes un mensaje nuevo")[:180],
+        "data": data or {},
+    }, ensure_ascii=False)
+    for d in lista:
+        try:
+            sub = json.loads(d["token"])
+        except Exception:
+            continue
+        try:
+            webpush(
+                subscription_info=sub,
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": VAPID_CLAIMS_EMAIL},
+            )
+        except Exception as e:
+            err = str(e)
+            if "410" in err or "404" in err:
+                try:
+                    run("DELETE FROM dispositivos_push WHERE id = ?", (d["id"],))
+                except Exception:
+                    pass
+            print("push error:", err)
+
+
+def notificar_destinatarios_mensaje(estudiante_id, remitente_id, remitente_rol, texto):
+    est = row("SELECT * FROM estudiantes WHERE id = ?", (estudiante_id,))
+    if not est:
+        return
+    preview = (texto or "")[:120]
+    remitente = row("SELECT * FROM usuarios WHERE id = ?", (remitente_id,))
+    nombre_rem = (remitente or {}).get("nombre") or remitente_rol or "Usuario"
+    targets = []
+    if remitente_rol == "tutor":
+        if est.get("representante_id"):
+            targets.append((est["representante_id"], "Mensaje del Tutor " + nombre_rem, preview))
+    elif remitente_rol == "docente":
+        if est.get("representante_id"):
+            targets.append((est["representante_id"], "Mensaje del Docente " + nombre_rem, preview))
+        curso = row("SELECT * FROM cursos WHERE id = ?", (est.get("curso_id"),))
+        if curso and curso.get("tutor_id") and curso["tutor_id"] != remitente_id:
+            targets.append((curso["tutor_id"], "Mensaje del Docente " + nombre_rem, preview))
+    elif remitente_rol == "representante":
+        curso = row("SELECT * FROM cursos WHERE id = ?", (est.get("curso_id"),))
+        if curso and curso.get("tutor_id"):
+            targets.append((curso["tutor_id"], "Mensaje del Representante " + nombre_rem, preview))
+    else:
+        if est.get("representante_id"):
+            targets.append((est["representante_id"], "Mensaje de " + nombre_rem, preview))
+        curso = row("SELECT * FROM cursos WHERE id = ?", (est.get("curso_id"),))
+        if curso and curso.get("tutor_id"):
+            targets.append((curso["tutor_id"], "Mensaje de " + nombre_rem, preview))
+    for uid_dest, title, body in targets:
+        if uid_dest and uid_dest != remitente_id:
+            enviar_push_a_usuario(uid_dest, title, body, {"tipo": "mensaje"})
+
+
+def h_push_vapid_public(params, body):
+    return 200, {"publicKey": VAPID_PUBLIC_KEY, "pushAvailable": PUSH_AVAILABLE}
+
+
+def h_push_subscribe(params, body):
+    usuario_id = body.get("usuarioId") or body.get("usuario_id")
+    subscription = body.get("subscription")
+    if not subscription and body.get("endpoint"):
+        subscription = body
+    if not usuario_id:
+        raise ApiError(400, "Falta usuarioId")
+    if not subscription or not subscription.get("endpoint"):
+        raise ApiError(400, "Falta subscription")
+    u = row("SELECT id FROM usuarios WHERE id = ?", (usuario_id,))
+    if not u:
+        raise ApiError(404, "Usuario no encontrado")
+    guardar_suscripcion(usuario_id, subscription)
+    return 200, {"ok": True}
+
+
+def h_push_unsubscribe(params, body):
+    usuario_id = body.get("usuarioId") or body.get("usuario_id")
+    if usuario_id:
+        run("DELETE FROM dispositivos_push WHERE usuario_id = ?", (usuario_id,))
+    return 200, {"ok": True}
+
+
+
 # ---------- handlers ----------
 def h_crear_tutor(params, body):
     nombre = mayus_nombre(body.get('nombre'))
@@ -575,6 +702,16 @@ def h_mensaje_a_curso(params, body):
             (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
         )
         creados.append(mid)
+    try:
+        _tutor = row("SELECT * FROM usuarios WHERE id = ?", (tutor_id,))
+        _nombre_t = (_tutor or {}).get('nombre') or 'Tutor'
+        _preview = (texto or '')[:120]
+        for _e in estudiantes:
+            _rid = _e.get('representante_id')
+            if _rid:
+                enviar_push_a_usuario(_rid, 'Mensaje del Tutor ' + _nombre_t, _preview, {'tipo': 'mensaje'})
+    except Exception as _ex:
+        print('notify curso error:', _ex)
     return 201, {'ok': True, 'enviados': len(creados), 'mensajeIds': creados}
 
 
@@ -632,6 +769,24 @@ def h_mensaje_docente_a_tutor(params, body):
         "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
         (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
     )
+    try:
+        _preview = (texto or '')[:120]
+        _nombre_a = (autoridad or {}).get('nombre') if 'autoridad' in dir() else None
+        if not _nombre_a:
+            _au = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
+            _nombre_a = (_au or {}).get('nombre') or 'Autoridad'
+        if destino_tipo == 'tutor' and destino_id:
+            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'docente' and destino_id:
+            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'todos_tutores':
+            for _t in rows("SELECT id FROM usuarios WHERE rol='tutor'"):
+                enviar_push_a_usuario(_t['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'todos_docentes':
+            for _d in rows("SELECT id FROM usuarios WHERE rol='docente'"):
+                enviar_push_a_usuario(_d['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+    except Exception as _ex:
+        print('notify inst error:', _ex)
     return 201, {'ok': True, 'mensajeId': mid}
 
 
@@ -931,6 +1086,10 @@ def h_admin_borrar_todo(params, body):
 
 # ---------- tabla de rutas ----------
 ROUTES = [
+    ('GET', r'^/api/push/vapid-public-key$', h_push_vapid_public),
+    ('POST', r'^/api/push/subscribe$', h_push_subscribe),
+    ('POST', r'^/api/push/unsubscribe$', h_push_unsubscribe),
+
     ('POST', r'^/api/tutores$', h_crear_tutor),
     ('POST', r'^/api/tutores/login$', h_login_tutor),
     ('DELETE', r'^/api/tutores/(?P<id>[^/]+)$', h_borrar_tutor),
