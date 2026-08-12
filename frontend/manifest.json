@@ -1,12 +1,12 @@
 {
-  "name": "Enlace Escolar - Unidad Educativa Dr. José María Velasco Ibarra",
+  "name": "Enlace Escolar",
   "short_name": "Enlace Escolar",
-  "description": "Comunicación académica entre Docentes, Tutores, Representantes y Autoridades.",
+  "description": "Comunicación académica - Unidad Educativa Dr. José María Velasco Ibarra",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F7F6F4",
+  "background_color": "#1E3A5C",
   "theme_color": "#1E3A5C",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
