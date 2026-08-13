@@ -106,6 +106,17 @@
   .msg-asignatura{font-size:12px;font-weight:700;color:var(--azul);margin:4px 0 2px;letter-spacing:0.02em;}
   .msg-asignatura span{font-weight:500;color:var(--muted);}
   .msg-empty-sec{font-size:12px;color:var(--muted);padding:8px 0 4px;}
+  .msg-foto{display:block;width:100%;max-height:280px;object-fit:cover;border-radius:10px;margin:8px 0 4px;background:#e8eef5;cursor:pointer;}
+  .foto-actions{display:flex;gap:8px;align-items:center;margin:8px 0;}
+  .foto-btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--ink);}
+  .foto-preview-wrap{position:relative;margin:8px 0;display:none;}
+  .foto-preview-wrap.show{display:block;}
+  .foto-preview{width:100%;max-height:220px;object-fit:cover;border-radius:12px;border:1px solid var(--line);}
+  .foto-quitar{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.65);color:#fff;border:none;border-radius:20px;padding:6px 10px;font-size:12px;cursor:pointer;}
+  .foto-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .foto-lightbox img{max-width:100%;max-height:92vh;border-radius:8px;object-fit:contain;}
+  .foto-lightbox button{position:absolute;top:16px;right:16px;background:#fff;border:none;border-radius:20px;padding:8px 14px;font-weight:600;cursor:pointer;}
+
   .msg-tabs{display:flex;gap:6px;margin:0 0 12px;padding:4px;background:#eef2f6;border-radius:12px;}
   .msg-tab{flex:1;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:600;padding:9px 4px;border-radius:9px;cursor:pointer;position:relative;line-height:1.2;}
   .msg-tab.active{background:#fff;color:var(--azul);box-shadow:0 1px 3px rgba(15,40,80,0.12);}
@@ -711,7 +722,15 @@
       <button data-tipo="info" onclick="seleccionarTipo('info')">Informe</button>
     </div>
     <label>Mensaje</label>
-    <textarea id="mensajeTexto" placeholder="Escribe el mensaje para el tutor y el representante..."></textarea>
+    <textarea id="mensajeTexto" placeholder="Escribe el mensaje o adjunta una foto..."></textarea>
+    <div class="foto-actions">
+      <button type="button" class="foto-btn" onclick="document.getElementById('mensajeFotoInput').click()">📷 Foto / Cámara</button>
+      <input type="file" id="mensajeFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onMensajeFotoSeleccionada(event)">
+    </div>
+    <div class="foto-preview-wrap" id="mensajeFotoPreviewWrap">
+      <img class="foto-preview" id="mensajeFotoPreview" alt="Vista previa">
+      <button type="button" class="foto-quitar" onclick="quitarMensajeFoto()">Quitar</button>
+    </div>
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovMensaje')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="enviarMensaje()">Enviar</button>
@@ -2355,7 +2374,16 @@ function renderMensajes(screen, lista, mensajesInst) {
       cuerpo += `<div class="stu-meta" style="margin:0 0 4px;">Estudiante: ${escapeHtml(m.estudianteNombre)}</div>`;
     }
     // 5) Mensaje
-    cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
+    const foto = (m.fotoUrl || m.foto_url || '').trim();
+    if (foto) {
+      const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      cuerpo += `<img class="msg-foto" src="${safe}" alt="Foto adjunta" onclick="verFotoGrande('${safe}')">`;
+    }
+    if ((m.texto || '') && (m.texto || '') !== '(Foto)') {
+      cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
+    } else if (!foto) {
+      cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
+    }
     const chips = [];
     if (opts.chip) chips.push(opts.chip);
     else if (m.remitenteRol) chips.push(rolLabel(m.remitenteRol));
@@ -2601,6 +2629,7 @@ async function abrirMensajeTutor() {
   mensajeTipo = 'info';
   document.getElementById('mensajeDestino').textContent = 'Destino: Tutor del curso seleccionado';
   document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
   document.getElementById('mensajeTexto').placeholder = 'Escribe el mensaje para el Tutor del curso...';
   document.querySelectorAll('#tipoBar button').forEach(b => b.classList.remove('sel-alert','sel-sage','sel-info'));
   const btn = document.querySelector('#tipoBar button[data-tipo="info"]');
@@ -2623,6 +2652,7 @@ function abrirMensajeAlTutorDesdeRep(estudianteId, tutorNombre) {
   mensajeTipo = 'info';
   document.getElementById('mensajeDestino').textContent = 'Para el Tutor' + (tutorNombre ? ': ' + tutorNombre : '') + ' (sobre este estudiante)';
   document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
   document.getElementById('mensajeTexto').placeholder = 'Escribe el mensaje para el Tutor...';
   // Solo mensaje, sin tipos
   const tipoBar = document.getElementById('tipoBar');
@@ -2642,6 +2672,7 @@ async function abrirMensaje(estudianteId) {
     ? 'El representante recibirá el mensaje'
     : 'Tutor y representante recibirán copia';
   document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('alert');
   document.getElementById('ovMensaje').classList.remove('hidden');
 }
@@ -2654,10 +2685,18 @@ function seleccionarTipo(t) {
 }
 async function enviarMensaje() {
   const texto = document.getElementById('mensajeTexto').value.trim();
-  if (!texto) { showToast('Escribe un mensaje antes de enviarlo.'); return; }
+  if (!texto && !mensajeFotoDataUrl) {
+    showToast('Escribe un mensaje o adjunta una foto.');
+    return;
+  }
   try {
+    let fotoUrl = '';
+    if (mensajeFotoDataUrl) {
+      showToast('Subiendo foto…');
+      fotoUrl = await subirFotoMensaje();
+    }
+    const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
     if (mensajeModoTutor) {
-      // Docente → Tutor del curso activo
       let mis = [];
       try { mis = (await api('GET', '/api/docentes/' + me.id + '/cursos')).cursos || []; } catch (_) {}
       const activa = mis.find(c => c.docenteCursoId === docenteCursoActivo);
@@ -2666,21 +2705,33 @@ async function enviarMensaje() {
         docenteId: me.id,
         cursoId: activa.cursoId,
         tipo: mensajeTipo,
-        texto: texto,
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
       });
       mensajeModoTutor = false;
+      quitarMensajeFoto();
       closeOv('ovMensaje');
       showToast('Mensaje enviado al Tutor del curso.');
     } else if (mensajeEstudianteId === '__TODOS__') {
       const r = await api('POST', '/api/mensajes/curso', {
-        remitenteId: me.id, tipo: mensajeTipo, texto,
+        remitenteId: me.id,
+        tipo: mensajeTipo,
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
       });
+      quitarMensajeFoto();
       closeOv('ovMensaje');
       showToast('Mensaje enviado a ' + r.enviados + ' representante(s).');
     } else {
       await api('POST', '/api/mensajes', {
-        estudianteId: mensajeEstudianteId, remitenteId: me.id, remitenteRol: me.rol, tipo: mensajeTipo, texto,
+        estudianteId: mensajeEstudianteId,
+        remitenteId: me.id,
+        remitenteRol: me.rol,
+        tipo: mensajeTipo,
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
       });
+      quitarMensajeFoto();
       closeOv('ovMensaje');
       showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : 'Mensaje entregado al tutor y al representante.');
     }
@@ -2695,6 +2746,7 @@ function abrirMensajeTodos() {
   mensajeTipo = 'alert';
   document.getElementById('mensajeDestino').textContent = 'Se enviará a TODOS los representantes vinculados de este curso';
   document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('alert');
   document.getElementById('ovMensaje').classList.remove('hidden');
 }
@@ -2758,6 +2810,69 @@ function marcarPushActivo() {
 }
 
 /** silent=true: no muestra toasts ni pide permiso si está en default (espera botón). */
+
+/* ===== Fotos en mensajes (almacenamiento externo; Turso solo URL) ===== */
+let mensajeFotoDataUrl = null;
+
+function quitarMensajeFoto() {
+  mensajeFotoDataUrl = null;
+  const inp = document.getElementById('mensajeFotoInput');
+  if (inp) inp.value = '';
+  const wrap = document.getElementById('mensajeFotoPreviewWrap');
+  if (wrap) wrap.classList.remove('show');
+}
+
+async function comprimirImagenArchivo(file, maxLado, calidad) {
+  maxLado = maxLado || 1280;
+  calidad = calidad || 0.72;
+  const bitmap = await createImageBitmap(file);
+  let w = bitmap.width, h = bitmap.height;
+  if (w > maxLado || h > maxLado) {
+    if (w > h) { h = Math.round(h * maxLado / w); w = maxLado; }
+    else { w = Math.round(w * maxLado / h); h = maxLado; }
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+  try { bitmap.close(); } catch (e) {}
+  return canvas.toDataURL('image/jpeg', calidad);
+}
+
+async function onMensajeFotoSeleccionada(ev) {
+  const file = ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    showToast('Elige una imagen (foto).');
+    return;
+  }
+  try {
+    showToast('Preparando foto…');
+    mensajeFotoDataUrl = await comprimirImagenArchivo(file);
+    const img = document.getElementById('mensajeFotoPreview');
+    const wrap = document.getElementById('mensajeFotoPreviewWrap');
+    if (img) img.src = mensajeFotoDataUrl;
+    if (wrap) wrap.classList.add('show');
+  } catch (e) {
+    showToast('No se pudo leer la foto.');
+    quitarMensajeFoto();
+  }
+}
+
+async function subirFotoMensaje() {
+  if (!mensajeFotoDataUrl) return '';
+  const r = await api('POST', '/api/fotos', { dataUrl: mensajeFotoDataUrl });
+  return (r && r.url) || '';
+}
+
+function verFotoGrande(url) {
+  if (!url) return;
+  const ov = document.createElement('div');
+  ov.className = 'foto-lightbox';
+  ov.innerHTML = '<button type="button">Cerrar</button><img alt="Foto" src="' + String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '">';
+  ov.onclick = function(e) { if (e.target === ov || e.target.tagName === 'BUTTON') ov.remove(); };
+  document.body.appendChild(ov);
+}
+
 async function activarNotificacionesPush(usuarioId, forzar) {
   if (!usuarioId) return false;
   if (!pushSoportado()) {
