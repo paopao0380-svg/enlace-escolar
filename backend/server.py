@@ -1134,51 +1134,142 @@ def h_admin_borrar_todo(params, body):
 
 # ---------- tabla de rutas ----------
 
-def _upload_foto_bytes(raw, filename="foto.jpg"):
-    import urllib.request
+
+def _multipart_body(fields, file_field, filename, raw, content_type="image/jpeg"):
     import uuid
+    boundary = "----EE" + uuid.uuid4().hex
+    parts = []
+    for name, value in fields:
+        parts.append(
+            ("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s\r\n" % (boundary, name, value)).encode()
+        )
+    parts.append(
+        ("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n" % (
+            boundary, file_field, filename, content_type
+        )).encode() + raw + b"\r\n"
+    )
+    parts.append(("--%s--\r\n" % boundary).encode())
+    return boundary, b"".join(parts)
+
+
+def _http_post(url, data, headers, timeout=45):
+    import urllib.request
+    import ssl
+    ctx = ssl.create_default_context()
+    req = urllib.request.Request(url, data=data, method="POST", headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        return resp.read(), resp.status
+
+
+def _upload_foto_bytes(raw, filename="foto.jpg"):
+    """Sube la imagen fuera de Turso. Prueba varios servicios por si uno falla."""
+    import urllib.parse
+    errors = []
+
+    # 1) Cloudinary (si está configurado en Render)
     cloud = (os.environ.get("CLOUDINARY_CLOUD_NAME") or "").strip()
     preset = (os.environ.get("CLOUDINARY_UPLOAD_PRESET") or "").strip()
     if cloud and preset:
-        boundary = "----EE" + uuid.uuid4().hex
-        parts = []
-        parts.append(("--%s\r\nContent-Disposition: form-data; name=\"upload_preset\"\r\n\r\n%s\r\n" % (boundary, preset)).encode())
-        parts.append(("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: image/jpeg\r\n\r\n" % (boundary, filename)).encode() + raw + b"\r\n")
-        parts.append(("--%s--\r\n" % boundary).encode())
-        body = b"".join(parts)
-        req = urllib.request.Request(
-            "https://api.cloudinary.com/v1_1/%s/image/upload" % cloud,
-            data=body,
-            method="POST",
-            headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary},
-        )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        url = data.get("secure_url") or data.get("url")
-        if not url:
-            raise ApiError(500, "No se pudo subir la foto (Cloudinary).")
-        return url
-    boundary = "----EE" + uuid.uuid4().hex
-    body = b""
-    body += ("--%s\r\nContent-Disposition: form-data; name=\"reqtype\"\r\n\r\nfileupload\r\n" % boundary).encode()
-    body += ("--%s\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"%s\"\r\nContent-Type: image/jpeg\r\n\r\n" % (boundary, filename)).encode() + raw + b"\r\n"
-    body += ("--%s--\r\n" % boundary).encode()
-    req = urllib.request.Request(
-        "https://catbox.moe/user/api.php",
-        data=body,
-        method="POST",
-        headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary},
-    )
+        try:
+            boundary, body = _multipart_body(
+                [("upload_preset", preset)],
+                "file",
+                filename,
+                raw,
+            )
+            data, status = _http_post(
+                "https://api.cloudinary.com/v1_1/%s/image/upload" % cloud,
+                body,
+                {"Content-Type": "multipart/form-data; boundary=%s" % boundary},
+            )
+            info = json.loads(data.decode("utf-8"))
+            url = info.get("secure_url") or info.get("url")
+            if url:
+                return url
+            errors.append("Cloudinary: respuesta sin URL")
+        except Exception as e:
+            errors.append("Cloudinary: " + str(e)[:80])
+
+    # 2) 0x0.st
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            url = resp.read().decode("utf-8").strip()
-        if not url.startswith("http"):
-            raise ApiError(500, "No se pudo subir la foto.")
-        return url
-    except ApiError:
-        raise
+        boundary, body = _multipart_body([], "file", filename, raw)
+        data, status = _http_post(
+            "https://0x0.st",
+            body,
+            {"Content-Type": "multipart/form-data; boundary=%s" % boundary, "User-Agent": "EnlaceEscolar/1.0"},
+        )
+        url = data.decode("utf-8").strip()
+        if url.startswith("http"):
+            return url
+        errors.append("0x0.st: " + url[:60])
     except Exception as e:
-        raise ApiError(500, "No se pudo subir la foto. " + str(e)[:100])
+        errors.append("0x0.st: " + str(e)[:80])
+
+    # 3) litterbox (catbox temporal 24h-72h) — mejor que nada para pruebas
+    try:
+        boundary, body = _multipart_body(
+            [("reqtype", "fileupload"), ("time", "72h")],
+            "fileToUpload",
+            filename,
+            raw,
+        )
+        data, status = _http_post(
+            "https://litterbox.catbox.moe/resources/internals/api.php",
+            body,
+            {"Content-Type": "multipart/form-data; boundary=%s" % boundary, "User-Agent": "EnlaceEscolar/1.0"},
+        )
+        url = data.decode("utf-8").strip()
+        if url.startswith("http"):
+            return url
+        errors.append("litterbox: " + url[:60])
+    except Exception as e:
+        errors.append("litterbox: " + str(e)[:80])
+
+    # 4) catbox permanente
+    try:
+        boundary, body = _multipart_body(
+            [("reqtype", "fileupload")],
+            "fileToUpload",
+            filename,
+            raw,
+        )
+        data, status = _http_post(
+            "https://catbox.moe/user/api.php",
+            body,
+            {"Content-Type": "multipart/form-data; boundary=%s" % boundary, "User-Agent": "EnlaceEscolar/1.0"},
+        )
+        url = data.decode("utf-8").strip()
+        if url.startswith("http"):
+            return url
+        errors.append("catbox: " + url[:60])
+    except Exception as e:
+        errors.append("catbox: " + str(e)[:80])
+
+    # 5) ImgBB si hay clave
+    imgbb = (os.environ.get("IMGBB_API_KEY") or "").strip()
+    if imgbb:
+        try:
+            import base64
+            b64 = base64.b64encode(raw).decode("ascii")
+            body = urllib.parse.urlencode({"key": imgbb, "image": b64}).encode()
+            data, status = _http_post(
+                "https://api.imgbb.com/1/upload",
+                body,
+                {"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "EnlaceEscolar/1.0"},
+            )
+            info = json.loads(data.decode("utf-8"))
+            url = (((info.get("data") or {}).get("url")) or "")
+            if url:
+                return url
+            errors.append("imgbb: sin URL")
+        except Exception as e:
+            errors.append("imgbb: " + str(e)[:80])
+
+    raise ApiError(
+        500,
+        "No se pudo subir la foto. Revisa internet del servidor o configura Cloudinary. "
+        + " | ".join(errors)[:180],
+    )
 
 
 def h_subir_foto(params, body):
