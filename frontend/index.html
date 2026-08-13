@@ -2336,20 +2336,25 @@ function renderMensajes(screen, lista, mensajesInst) {
     opts = opts || {};
     const sinLeer = !esMensajeLeido(m) && !(me && m.remitenteId === me.id);
     const esMio = me && m.remitenteId === me.id;
+    // 1) Motivo
     const tipoTxt = opts.simpleTipo ? 'Mensaje' : tipoLabel(m.tipo || 'info');
     const asg = (m.asignatura || '').trim();
     let cuerpo = '';
-    if ((m.remitenteRol === 'docente' || opts.forzarAsignatura) && asg) {
-      cuerpo += `<div class="msg-asignatura">Asignatura: <span>${escapeHtml(asg)}</span></div>`;
-    }
+    // 2) Nombre del docente / remitente / destinatario
     if (opts.paraNombre) {
       cuerpo += `<div class="msg-stu">Para: ${escapeHtml(opts.paraNombre)}</div>`;
     } else if (m.remitenteNombre && !opts.ocultarRemitente) {
       cuerpo += `<div class="msg-stu">${escapeHtml(m.remitenteNombre)}</div>`;
     }
+    // 3) Asignatura (debajo del nombre)
+    if ((m.remitenteRol === 'docente' || opts.forzarAsignatura) && asg) {
+      cuerpo += `<div class="msg-asignatura">Asignatura: <span>${escapeHtml(asg)}</span></div>`;
+    }
+    // 4) Estudiante
     if (m.estudianteNombre && opts.mostrarEstudiante !== false) {
       cuerpo += `<div class="stu-meta" style="margin:0 0 4px;">Estudiante: ${escapeHtml(m.estudianteNombre)}</div>`;
     }
+    // 5) Mensaje
     cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
     const chips = [];
     if (opts.chip) chips.push(opts.chip);
