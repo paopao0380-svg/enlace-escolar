@@ -78,7 +78,14 @@
   .tabbar button{flex:1;background:none;border:none;font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
   .tabbar button.active{color:var(--azul);font-weight:600;}
   .tabicon{width:18px;height:18px;border-radius:5px;border:1.6px solid currentColor;}
-  .badge{position:absolute;top:-3px;right:26%;background:var(--alert);color:#fff;font-size:9px;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+  .badge{position:absolute;top:-4px;right:18%;background:#e11d48;color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 1px 3px rgba(225,29,72,0.45);}
+  .msg-card.msg-unread{border-left:4px solid #e11d48;box-shadow:0 1px 4px rgba(225,29,72,0.12);}
+  .msg-nuevo{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:#e11d48;padding:2px 7px;border-radius:6px;margin-right:6px;letter-spacing:0.03em;text-transform:uppercase;}
+  .unread-banner{margin:0 0 12px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,#fff1f2,#ffe4e6);border:1px solid #fecdd3;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .unread-banner-text{font-size:13px;font-weight:600;color:#9f1239;line-height:1.35;}
+  .unread-banner-sub{font-size:11.5px;font-weight:500;color:#be123c;opacity:0.9;margin-top:2px;}
+  .btn-marcar-leidos{border:none;background:#e11d48;color:#fff;font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;}
+  .btn-marcar-leidos:active{opacity:0.9;transform:scale(0.98);}
   .empty{text-align:center;color:var(--muted);font-size:12.5px;padding:36px 10px;}
   .msg-card{border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid var(--line);}
   .msg-card.tipo-alert{background:var(--alert-bg);border-color:#E3C6BE;}
@@ -910,6 +917,74 @@ let session = null;   // {usuarioId}
 let me = null;        // usuario actual en caché: {id, nombre, rol, cursoId, claveAcceso}
 let ready = false;
 let ultimoConteoMensajes = null;
+
+/* ===== Mensajes sin leer ===== */
+function _readKey() {
+  return 'ee_leidos_' + ((me && me.id) ? me.id : 'x');
+}
+function obtenerLeidosSet() {
+  try {
+    const raw = localStorage.getItem(_readKey());
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) { return new Set(); }
+}
+function guardarLeidosSet(set) {
+  try {
+    localStorage.setItem(_readKey(), JSON.stringify(Array.from(set).slice(-400)));
+  } catch (e) {}
+}
+function esMensajeLeido(m) {
+  if (!m || !m.id) return true;
+  if (me && me.rol === 'tutor' && m.confirmadoTutor) return true;
+  if (me && me.rol === 'representante' && m.confirmadoRepresentante) return true;
+  if (me && m.remitenteId && m.remitenteId === me.id) return true;
+  return obtenerLeidosSet().has(String(m.id));
+}
+function marcarMensajeLeidoLocal(id) {
+  if (!id) return;
+  const set = obtenerLeidosSet();
+  set.add(String(id));
+  guardarLeidosSet(set);
+}
+function contarSinLeer(lista, mensajesInst) {
+  let n = 0;
+  for (const m of (lista || [])) {
+    if (!esMensajeLeido(m)) n++;
+  }
+  for (const m of (mensajesInst || [])) {
+    if (me && m.remitenteId && m.remitenteId === me.id) continue;
+    if (!esMensajeLeido(m)) n++;
+  }
+  return n;
+}
+async function marcarTodosLeidos(lista, mensajesInst) {
+  const set = obtenerLeidosSet();
+  for (const m of (lista || [])) {
+    if (!m || !m.id) continue;
+    set.add(String(m.id));
+    if (me.rol === 'tutor' && !m.confirmadoTutor) {
+      try {
+        await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoTutor' });
+        m.confirmadoTutor = true;
+      } catch (e) {}
+    }
+    if (me.rol === 'representante' && !m.confirmadoRepresentante) {
+      try {
+        await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoRepresentante' });
+        m.confirmadoRepresentante = true;
+      } catch (e) {}
+    }
+  }
+  for (const m of (mensajesInst || [])) {
+    if (m && m.id) set.add(String(m.id));
+  }
+  guardarLeidosSet(set);
+  showToast('Mensajes marcados como leídos');
+  render();
+}
+window._msgsCache = { lista: [], inst: [] };
+
 
 function guardarSesionLocal() {
   try {
@@ -1951,13 +2026,13 @@ async function renderApp(root) {
     }
   } catch (e) { showToast(e.message); }
 
-  const campo = me.rol === 'tutor' ? 'confirmadoTutor' : me.rol === 'representante' ? 'confirmadoRepresentante' : null;
-  const unread = campo ? mensajesList.filter(m => !m[campo]).length : 0;
+  window._msgsCache = { lista: mensajesList || [], inst: mensajesInst || [] };
+  const unread = contarSinLeer(mensajesList, mensajesInst);
 
-  if (ultimoConteoMensajes !== null && mensajesList.length > ultimoConteoMensajes && me.rol !== 'docente') {
-    showToast('Tienes ' + (mensajesList.length - ultimoConteoMensajes) + ' mensaje(s) nuevo(s).');
+  if (ultimoConteoMensajes !== null && unread > ultimoConteoMensajes) {
+    showToast('Tienes mensajes nuevos por revisar');
   }
-  ultimoConteoMensajes = mensajesList.length;
+  ultimoConteoMensajes = unread;
 
   root.innerHTML = `
     <div class="topbar">
@@ -1979,7 +2054,7 @@ async function renderApp(root) {
       ${tabs.map(t => `
         <button class="${t.id === currentTab ? 'active' : ''}" onclick="cambiarTab('${t.id}')">
           <div class="tabicon"></div>${t.label}
-          ${t.id === 'mensajes' && unread > 0 ? `<span class="badge">${unread}</span>` : ''}
+          ${t.id === 'mensajes' && unread > 0 ? `<span class="badge">${unread > 9 ? '9+' : unread}</span>` : ''}
         </button>`).join('')}
     </div>
     <div class="screen" id="screen"></div>
@@ -2225,8 +2300,21 @@ async function renderInicioRepresentante(screen) {
 
 function renderMensajes(screen, lista, mensajesInst) {
   mensajesInst = mensajesInst || [];
-  const campo = me.rol === 'tutor' ? 'confirmadoTutor' : me.rol === 'representante' ? 'confirmadoRepresentante' : null;
+  lista = lista || [];
+  window._msgsCache = { lista: lista, inst: mensajesInst };
   const ordenada = lista.slice().reverse();
+  const unread = contarSinLeer(lista, mensajesInst);
+
+  const banner = unread > 0
+    ? `<div class="unread-banner">
+        <div>
+          <div class="unread-banner-text">${unread} mensaje${unread === 1 ? '' : 's'} sin leer</div>
+          <div class="unread-banner-sub">Revisa y marca como leídos cuando termines</div>
+        </div>
+        <button type="button" class="btn-marcar-leidos" onclick="marcarTodosLeidos(window._msgsCache.lista, window._msgsCache.inst)">Marcar leídos</button>
+      </div>`
+    : '';
+
   const bloqueInst = (me.rol === 'tutor' || me.rol === 'docente') && mensajesInst.length
     ? `<div class="section-title">${me.rol === 'tutor' ? 'Comunicados y mensajes del equipo' : 'Comunicados institucionales'}</div>` + mensajesInst.map(m => {
         const rolAut = m.remitenteRol === 'rector' ? 'Rector'
@@ -2236,22 +2324,21 @@ function renderMensajes(screen, lista, mensajesInst) {
           : m.remitenteRol === 'tutor' ? 'Tutor'
           : 'Autoridad';
         const tipoTxt = tipoLabel(m.tipo || 'info');
+        const sinLeer = !esMensajeLeido(m) && !(me && m.remitenteId === me.id);
         return `
-        <div class="msg-card tipo-${m.tipo||'info'}">
+        <div class="msg-card tipo-${m.tipo||'info'}${sinLeer ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
           <div class="msg-head">
-            <span class="msg-tipo">${tipoTxt}</span>
+            <span class="msg-tipo">${sinLeer ? '<span class="msg-nuevo">Nuevo</span>' : ''}${tipoTxt}</span>
             <span class="msg-date">${fmtFecha(m.fecha)}</span>
           </div>
           <div class="msg-stu">${escapeHtml(m.remitenteNombre || rolAut)}</div>
           <div class="msg-text">${escapeHtml(m.texto)}</div>
-          <div class="msg-chain">
-            <span class="chip">${rolAut}</span>
-          </div>
+          <div class="msg-chain"><span class="chip">${rolAut}</span></div>
         </div>`;
       }).join('')
     : '';
 
-    const enviadosTutor = (me.rol === 'docente' && window._mensajesDocenteATutor && window._mensajesDocenteATutor.length)
+  const enviadosTutor = (me.rol === 'docente' && window._mensajesDocenteATutor && window._mensajesDocenteATutor.length)
     ? `<div class="section-title">Mensajes al Tutor</div>` + window._mensajesDocenteATutor.map(m => {
         const tipoTxt = tipoLabel(m.tipo || 'info');
         return `
@@ -2267,36 +2354,76 @@ function renderMensajes(screen, lista, mensajesInst) {
       }).join('')
     : '';
 
-  screen.innerHTML = bloqueInst + enviadosTutor + `<div class="section-title">${me.rol === 'docente' ? 'Mensajes a representantes' : me.rol === 'representante' ? 'Mensajes (enviados y recibidos)' : 'Mensajes recibidos'}</div>` +
+  const tituloLista = me.rol === 'docente' ? 'Mensajes a representantes'
+    : me.rol === 'representante' ? 'Mensajes (enviados y recibidos)'
+    : 'Mensajes recibidos';
+
+  screen.innerHTML = banner + bloqueInst + enviadosTutor + `<div class="section-title">${tituloLista}</div>` +
     (ordenada.length === 0 ? '<div class="empty">No hay mensajes todavía.</div>' :
       ordenada.map(m => {
-        const sinLeer = campo && !m[campo];
-        const esRep = m.remitenteRol === 'representante';
-        // Representante: nombre del representante resaltado, luego estudiante, luego mensaje
-        const cuerpo = esRep
-          ? `<div class="msg-stu">${m.remitenteNombre || 'Representante'}${m.remitenteContacto ? ' · ' + m.remitenteContacto : ''}</div>
-          <div class="stu-meta" style="margin:2px 0 6px;">Estudiante: ${m.estudianteNombre || '—'}</div>
-          <div class="msg-text">${m.texto}</div>
-          <div class="msg-chain">
-            <span class="chip">Representante</span>
-            ${me.rol === 'tutor' ? `<span class="chip">${m.confirmadoTutor ? '✓' : '…'} Tutor</span>` : ''}
-          </div>`
-          : `<div class="msg-stu">${m.estudianteNombre || '—'}</div>
-          <div class="msg-text">${m.texto}</div>
-          <div class="msg-chain">
-            <span class="chip">${m.remitenteRol === 'tutor' ? 'Tutor' : 'Docente'}: ${m.remitenteNombre || '—'}</span>
-            ${m.remitenteRol === 'docente' ? `<span class="chip">${m.confirmadoTutor ? '✓' : '…'} Tutor</span>` : ''}
-            <span class="chip">${m.confirmadoRepresentante ? '✓' : '…'} Representante</span>
-          </div>`;
-        const cabeza = esRep
-          ? `<div class="msg-head"><span class="msg-tipo">${sinLeer ? '<span class="unread-dot"></span>' : ''}Mensaje</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`
-          : `<div class="msg-head"><span class="msg-tipo">${sinLeer ? '<span class="unread-dot"></span>' : ''}${tipoLabel(m.tipo)}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`;
+        const sinLeer = !esMensajeLeido(m);
+        const esMio = me && m.remitenteId === me.id;
+        const head = (me.rol === 'representante')
+          ? `<div class="msg-head"><span class="msg-tipo">${sinLeer && !esMio ? '<span class="msg-nuevo">Nuevo</span>' : ''}Mensaje</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`
+          : `<div class="msg-head"><span class="msg-tipo">${sinLeer && !esMio ? '<span class="msg-nuevo">Nuevo</span>' : ''}${tipoLabel(m.tipo)}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`;
+        let quien = '';
+        if (m.remitenteNombre) quien = `<div class="msg-stu">${escapeHtml(m.remitenteNombre)}</div>`;
+        if (m.estudianteNombre) quien += `<div class="stu-meta" style="margin:0 0 4px;">Estudiante: ${escapeHtml(m.estudianteNombre)}</div>`;
         return `
-        <div class="msg-card tipo-${esRep ? 'info' : m.tipo}" ${sinLeer ? `onclick="marcarLeido('${m.id}','${campo}')" style="cursor:pointer;"` : ''}>
-          ${cabeza}
-          ${cuerpo}
+        <div class="msg-card tipo-${m.tipo||'info'}${sinLeer && !esMio ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
+          ${head}
+          ${quien}
+          <div class="msg-text">${escapeHtml(m.texto)}</div>
+          <div class="msg-chain">
+            <span class="chip">${escapeHtml((m.remitenteRol || '').toString())}</span>
+            ${me.rol === 'tutor' ? `<span class="chip">${m.confirmadoTutor ? '✓ Leído' : 'Sin leer'}</span>` : ''}
+            ${me.rol === 'representante' ? `<span class="chip">${m.confirmadoRepresentante ? '✓ Leído' : 'Sin leer'}</span>` : ''}
+          </div>
         </div>`;
       }).join(''));
+
+  // Al abrir la pestaña, marcar como leídos tras un momento (el usuario ya los ve)
+  setTimeout(function() {
+    autoMarcarLeidosVisibles(lista, mensajesInst);
+  }, 1200);
+}
+
+async function autoMarcarLeidosVisibles(lista, mensajesInst) {
+  if (currentTab !== 'mensajes') return;
+  const set = obtenerLeidosSet();
+  let cambio = false;
+  for (const m of (lista || [])) {
+    if (!m || !m.id) continue;
+    if (me && m.remitenteId === me.id) continue;
+    if (!esMensajeLeido(m)) {
+      set.add(String(m.id));
+      cambio = true;
+      if (me.rol === 'tutor' && !m.confirmadoTutor) {
+        try { await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoTutor' }); m.confirmadoTutor = true; } catch (e) {}
+      }
+      if (me.rol === 'representante' && !m.confirmadoRepresentante) {
+        try { await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoRepresentante' }); m.confirmadoRepresentante = true; } catch (e) {}
+      }
+    }
+  }
+  for (const m of (mensajesInst || [])) {
+    if (!m || !m.id) continue;
+    if (me && m.remitenteId === me.id) continue;
+    if (!esMensajeLeido(m)) { set.add(String(m.id)); cambio = true; }
+  }
+  if (cambio) {
+    guardarLeidosSet(set);
+    // Actualizar badge sin parpadeo fuerte
+    const badge = document.querySelector('.tabbar .badge');
+    if (badge) badge.remove();
+    document.querySelectorAll('.msg-unread').forEach(function(el) {
+      el.classList.remove('msg-unread');
+      const n = el.querySelector('.msg-nuevo');
+      if (n) n.remove();
+    });
+    const ban = document.querySelector('.unread-banner');
+    if (ban) ban.remove();
+  }
 }
 
 async function marcarLeido(mensajeId, campo) {
