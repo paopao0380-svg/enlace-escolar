@@ -1022,6 +1022,55 @@ def h_docentes_de_curso(params, body):
     return 200, {'docentes': out}
 
 
+
+def h_mensaje_tutor_a_todos_docentes(params, body):
+    """Tutor envía el mismo mensaje a todos los docentes de su curso."""
+    tutor_id = body.get('tutorId')
+    tipo = (body.get('tipo') or 'info').strip()
+    texto = (body.get('texto') or '').strip()
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not tutor_id:
+        raise ApiError(400, 'Faltan datos.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
+    tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol = 'tutor'", (tutor_id,))
+    if not tutor:
+        raise ApiError(403, 'Solo el Tutor puede enviar este mensaje.')
+    curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (tutor_id,))
+    if not curso:
+        raise ApiError(404, 'No tienes curso asignado.')
+    docs = rows(
+        "SELECT DISTINCT u.id, u.nombre FROM docente_cursos dc "
+        "JOIN usuarios u ON u.id = dc.docente_id "
+        "WHERE dc.curso_id = ? AND u.rol = 'docente'",
+        (curso['id'],),
+    )
+    if not docs:
+        raise ApiError(400, 'No hay docentes vinculados a tu curso.')
+    fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    ids = []
+    for d in docs:
+        mid = uid('mi')
+        try:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+                (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha, foto_url or None),
+            )
+        except Exception:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha),
+            )
+        ids.append(mid)
+        try:
+            enviar_push_a_usuario(d['id'], 'Mensaje del Tutor ' + (tutor.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
+        except Exception:
+            pass
+    return 201, {'ok': True, 'enviados': len(ids), 'mensajeIds': ids}
+
+
 def h_mensaje_tutor_a_docente(params, body):
     """Tutor envía mensaje a un docente de su curso."""
     tutor_id = body.get('tutorId')
@@ -1482,6 +1531,7 @@ ROUTES = [
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes-enviados$', h_mensajes_enviados_tutor),
     ('POST', r'^/api/tutores/mensajes-docente$', h_mensaje_tutor_a_docente),
+    ('POST', r'^/api/tutores/mensajes-docentes-todos$', h_mensaje_tutor_a_todos_docentes),
     ('GET', r'^/api/cursos/(?P<id>[^/]+)/docentes$', h_docentes_de_curso),
 
     ('POST', r'^/api/autoridades$', h_crear_autoridad),
