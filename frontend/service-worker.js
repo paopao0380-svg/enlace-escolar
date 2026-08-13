@@ -1,5 +1,5 @@
 // Enlace Escolar SW + Push
-const CACHE_NAME = 'enlace-escolar-v20260813-tutordocs';
+const CACHE_NAME = 'enlace-escolar-v20260813-docfix';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

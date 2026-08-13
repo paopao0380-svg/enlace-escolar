@@ -714,6 +714,17 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="ovListaDocentes">
+  <div class="sheet">
+    <h3>Docentes del curso</h3>
+    <p class="helptext">Elige el docente a quien quieres enviar el mensaje.</p>
+    <div id="listaDocentesBox"></div>
+    <div class="sheet-actions">
+      <button class="btn" style="flex:1" onclick="closeOv('ovListaDocentes')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="ovMensaje">
   <div class="sheet">
     <h3>Enviar mensaje</h3>
@@ -2666,7 +2677,7 @@ function abrirRegistro() {
   document.getElementById('regNombre').value = '';
   document.getElementById('ovRegistrar').classList.remove('hidden');
 }
-function closeOv(id) { document.getElementById(id).classList.add('hidden'); }
+function closeOv(id) { const el = document.getElementById(id); if (el) el.classList.add('hidden'); }
 
 async function guardarEstudiante() {
   const nombre = mayusNombre(document.getElementById('regNombre').value);
@@ -2783,43 +2794,66 @@ async function abrirMensajeTodosDocentes() {
 }
 
 async function abrirListaDocentesTutor() {
-  let docs = window._docentesDelCurso;
-  if (!docs || !docs.length) {
+  try {
+    if (!me || !me.cursoId) {
+      showToast('No se encontró el curso del Tutor.');
+      return;
+    }
+    showToast('Cargando docentes…');
+    let docs = [];
     try {
       docs = (await api('GET', '/api/cursos/' + me.cursoId + '/docentes')).docentes || [];
       window._docentesDelCurso = docs;
-    } catch (e) { showToast(e.message); return; }
-  }
-  if (!docs.length) {
-    showToast('Aún no hay docentes vinculados a tu curso.');
-    return;
-  }
-  const ov = document.getElementById('ovListaDocentes');
-  if (ov) {
+    } catch (e) {
+      showToast(e.message || 'No se pudo cargar la lista de docentes.');
+      return;
+    }
+    if (!docs.length) {
+      showToast('Aún no hay docentes vinculados a tu curso.');
+      return;
+    }
+    const ov = document.getElementById('ovListaDocentes');
     const box = document.getElementById('listaDocentesBox');
-    box.innerHTML = docs.map(d => {
+    if (!ov || !box) {
+      // Fallback sin modal
+      abrirMensajeADocente(docs[0].id, docs[0].nombre || 'Docente');
+      return;
+    }
+    box.innerHTML = docs.map(function(d, i) {
       const asg = d.asignatura ? (' — ' + d.asignatura) : '';
-      return `<button type="button" class="btn" style="width:100%;margin-bottom:8px;text-align:left;justify-content:flex-start;" onclick="abrirMensajeADocente('${d.id}', '${String(d.nombre||'').replace(/'/g,"\\'")}')">${escapeHtml(d.nombre)}${escapeHtml(asg)}</button>`;
+      const label = (d.nombre || 'Docente') + asg;
+      return '<button type="button" class="btn" style="width:100%;margin-bottom:8px;text-align:left;" data-doc-idx="' + i + '">' + escapeHtml(label) + '</button>';
     }).join('');
+    box.querySelectorAll('button[data-doc-idx]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const i = parseInt(btn.getAttribute('data-doc-idx'), 10);
+        const d = docs[i];
+        if (d) abrirMensajeADocente(d.id, d.nombre || 'Docente');
+      });
+    });
     ov.classList.remove('hidden');
-    return;
+  } catch (e) {
+    showToast((e && e.message) ? e.message : 'Error al abrir docentes.');
   }
-  // fallback: primer docente
-  abrirMensajeADocente(docs[0].id, docs[0].nombre);
 }
 
 function abrirMensajeADocente(docenteId, nombre) {
-  closeOv('ovListaDocentes');
+  try { closeOv('ovListaDocentes'); } catch (e) {}
   mensajeModoTutor = false;
+  mensajeTodosDocentes = false;
   mensajeDocenteId = docenteId;
   mensajeEstudianteId = null;
   mensajeTipo = 'info';
-  restaurarTipoMensajeUI();
-  document.getElementById('mensajeDestino').textContent = 'Para el Docente: ' + (nombre || '');
-  document.getElementById('mensajeTexto').value = '';
+  try { restaurarTipoMensajeUI(); } catch (e) {}
+  const dest = document.getElementById('mensajeDestino');
+  if (dest) dest.textContent = 'Para el Docente: ' + (nombre || '');
+  const ta = document.getElementById('mensajeTexto');
+  if (ta) ta.value = '';
   try { quitarMensajeFoto(); } catch (e) {}
-  seleccionarTipo('info');
-  document.getElementById('ovMensaje').classList.remove('hidden');
+  try { seleccionarTipo('info'); } catch (e) {}
+  const ov = document.getElementById('ovMensaje');
+  if (ov) ov.classList.remove('hidden');
+  else showToast('No se pudo abrir el formulario de mensaje.');
 }
 
 async function enviarMensaje() {
