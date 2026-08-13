@@ -2010,7 +2010,7 @@ async function cerrarAdminClaveNueva() {
 const tabsByRole = {
   docente: [{ id: 'inicio', label: 'Estudiantes' }, { id: 'mensajes', label: 'Mensajes' }],
   tutor: [{ id: 'inicio', label: 'Curso' }, { id: 'mensajes', label: 'Mensajes' }],
-  representante: [{ id: 'inicio', label: 'Mi(s) hijo(s)' }, { id: 'mensajes', label: 'Recibidos' }],
+  representante: [{ id: 'inicio', label: 'Mi(s) hijo(s)' }, { id: 'mensajes', label: 'Mensajes' }],
   rector: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }],
   inspector: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }],
   dece: [{ id: 'inicio', label: 'Enviar' }, { id: 'mensajes', label: 'Enviados' }]
@@ -2436,7 +2436,7 @@ function renderMensajes(screen, lista, mensajesInst) {
     const recibidos = lista.filter(m => m.remitenteId !== me.id).sort(byFechaDesc);
     const enviados = lista.filter(m => m.remitenteId === me.id).sort(byFechaDesc);
     tabs = [
-      { id: 'recibidos', label: 'Recibidos', unread: countUnread(recibidos) },
+      { id: 'recibidos', label: 'Entrantes', unread: countUnread(recibidos) },
       { id: 'enviados', label: 'Enviados', unread: 0 },
     ];
     window._repRecibidos = recibidos;
