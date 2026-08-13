@@ -928,6 +928,7 @@ def ser_msg_inst(m, remitente_nombre=None):
         'tipo': m['tipo'],
         'texto': m['texto'],
         'fecha': m['fecha'],
+        'fotoUrl': _safe_get(m, 'foto_url', '') or '',
     }
 
 
@@ -995,6 +996,114 @@ def h_mensajes_institucionales_recibidos(params, body):
     for m in lista:
         rem = row('SELECT nombre FROM usuarios WHERE id = ?', (m['remitente_id'],))
         out.append(ser_msg_inst(m, rem['nombre'] if rem else ''))
+    return 200, {'mensajes': out}
+
+
+
+def h_docentes_de_curso(params, body):
+    """Docentes vinculados a un curso (para que el Tutor les escriba)."""
+    curso_id = params['id']
+    curso = row('SELECT * FROM cursos WHERE id = ?', (curso_id,))
+    if not curso:
+        raise ApiError(404, 'Curso no encontrado.')
+    lista = rows(
+        "SELECT DISTINCT u.id, u.nombre, dc.asignatura FROM docente_cursos dc "
+        "JOIN usuarios u ON u.id = dc.docente_id "
+        "WHERE dc.curso_id = ? AND u.rol = 'docente' ORDER BY u.nombre ASC",
+        (curso_id,),
+    )
+    out = []
+    for r in lista:
+        out.append({
+            'id': r['id'],
+            'nombre': r['nombre'],
+            'asignatura': r.get('asignatura') or '',
+        })
+    return 200, {'docentes': out}
+
+
+def h_mensaje_tutor_a_docente(params, body):
+    """Tutor envía mensaje a un docente de su curso."""
+    tutor_id = body.get('tutorId')
+    docente_id = body.get('docenteId')
+    tipo = (body.get('tipo') or 'info').strip()
+    texto = (body.get('texto') or '').strip()
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not tutor_id or not docente_id:
+        raise ApiError(400, 'Faltan datos.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
+    tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol = 'tutor'", (tutor_id,))
+    if not tutor:
+        raise ApiError(403, 'Solo el Tutor puede enviar este mensaje.')
+    curso = row('SELECT * FROM cursos WHERE tutor_id = ?', (tutor_id,))
+    if not curso:
+        raise ApiError(404, 'No tienes curso asignado.')
+    vinculo = row(
+        'SELECT * FROM docente_cursos WHERE docente_id = ? AND curso_id = ?',
+        (docente_id, curso['id']),
+    )
+    if not vinculo:
+        raise ApiError(403, 'Ese docente no está vinculado a tu curso.')
+    mid = uid('mi')
+    fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    try:
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha, foto_url or None),
+        )
+    except Exception:
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+            (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha),
+        )
+    try:
+        enviar_push_a_usuario(docente_id, 'Mensaje del Tutor ' + (tutor.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
+    except Exception as ex:
+        print('push tutor->docente', ex)
+    return 201, {'ok': True, 'mensajeId': mid}
+
+
+def h_mensajes_enviados_tutor(params, body):
+    """Mensajes que el tutor envió a representantes y a docentes."""
+    tid = params['id']
+    tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol = 'tutor'", (tid,))
+    if not tutor:
+        raise ApiError(404, 'Tutor no encontrado.')
+    out = []
+    # A representantes (tabla mensajes)
+    lista = rows(
+        "SELECT m.*, e.nombre as estudiante_nombre, u.nombre as dest_nombre "
+        "FROM mensajes m "
+        "JOIN estudiantes e ON e.id = m.estudiante_id "
+        "LEFT JOIN usuarios u ON u.id = e.representante_id "
+        "WHERE m.remitente_id = ? AND m.remitente_rol = 'tutor' ORDER BY m.fecha DESC",
+        (tid,),
+    )
+    for m in lista:
+        d = ser_mensaje(m)
+        d['estudianteNombre'] = m.get('estudiante_nombre') or ''
+        d['destinoNombre'] = m.get('dest_nombre') or 'Representante'
+        d['destinoTipo'] = 'representante'
+        d['remitenteNombre'] = tutor.get('nombre') or 'Tutor'
+        out.append(d)
+    # A docentes (institucionales)
+    lista2 = rows(
+        "SELECT * FROM mensajes_institucionales WHERE remitente_id = ? AND remitente_rol = 'tutor' ORDER BY fecha DESC",
+        (tid,),
+    )
+    for m in lista2:
+        dest_nombre = ''
+        if m.get('destino_id'):
+            u = row('SELECT nombre FROM usuarios WHERE id = ?', (m['destino_id'],))
+            dest_nombre = u['nombre'] if u else 'Docente'
+        d = ser_msg_inst(m, tutor.get('nombre') or 'Tutor')
+        d['destinoNombre'] = dest_nombre
+        d['destinoTipo'] = 'docente'
+        out.append(d)
+    out.sort(key=lambda x: str(x.get('fecha') or ''), reverse=True)
     return 200, {'mensajes': out}
 
 
@@ -1371,6 +1480,9 @@ ROUTES = [
     ('POST', r'^/api/mensajes/curso$', h_mensaje_a_curso),
     ('PATCH', r'^/api/mensajes/(?P<id>[^/]+)/confirmar$', h_confirmar_mensaje),
     ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes$', h_mensajes_tutor),
+    ('GET', r'^/api/tutores/(?P<id>[^/]+)/mensajes-enviados$', h_mensajes_enviados_tutor),
+    ('POST', r'^/api/tutores/mensajes-docente$', h_mensaje_tutor_a_docente),
+    ('GET', r'^/api/cursos/(?P<id>[^/]+)/docentes$', h_docentes_de_curso),
 
     ('POST', r'^/api/autoridades$', h_crear_autoridad),
     ('POST', r'^/api/autoridades/login$', h_login_autoridad),
