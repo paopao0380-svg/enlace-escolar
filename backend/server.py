@@ -69,12 +69,31 @@ def ser_estudiante(e):
     }
 
 
+def _safe_get(row, key, default=None):
+    try:
+        if row is None:
+            return default
+        if isinstance(row, dict):
+            return row.get(key, default)
+        if hasattr(row, 'get'):
+            v = row.get(key)
+            if v is not None:
+                return v
+        try:
+            return row[key]
+        except Exception:
+            return default
+    except Exception:
+        return default
+
+
 def ser_mensaje(m):
+
     return {
         'id': m['id'], 'estudianteId': m['estudiante_id'], 'remitenteId': m['remitente_id'],
         'remitenteRol': m['remitente_rol'], 'tipo': m['tipo'], 'texto': m['texto'], 'fecha': m['fecha'],
         'confirmadoTutor': bool(m['confirmado_tutor']), 'confirmadoRepresentante': bool(m['confirmado_representante']),
-        'fotoUrl': (m.get('foto_url') if hasattr(m, 'get') else (m['foto_url'] if 'foto_url' in m else None)) or '',
+        'fotoUrl': _safe_get(m, 'foto_url', '') or '',
     }
 
 
@@ -551,6 +570,11 @@ def h_usuario_por_id(params, body):
 
 
 def h_crear_mensaje(params, body):
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     estudiante_id = body.get('estudianteId')
     remitente_id = body.get('remitenteId')
     remitente_rol = body.get('remitenteRol')
@@ -1265,14 +1289,25 @@ def _upload_foto_bytes(raw, filename="foto.jpg"):
         except Exception as e:
             errors.append("imgbb: " + str(e)[:80])
 
+    # Último recurso: guardar imagen pequeña como data-URL (solo si es liviana)
+    # Así la foto sí se ve aunque fallen los servicios externos.
+    if len(raw) <= 90000:
+        import base64 as _b64
+        return "data:image/jpeg;base64," + _b64.b64encode(raw).decode("ascii")
+
     raise ApiError(
         500,
-        "No se pudo subir la foto. Revisa internet del servidor o configura Cloudinary. "
-        + " | ".join(errors)[:180],
+        "No se pudo subir la foto. Prueba una imagen más pequeña o configura Cloudinary. "
+        + " | ".join(errors)[:160],
     )
 
 
 def h_subir_foto(params, body):
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     data_url = (body.get("dataUrl") or body.get("data_url") or "").strip()
     if not data_url.startswith("data:image/"):
         raise ApiError(400, "Imagen inválida.")

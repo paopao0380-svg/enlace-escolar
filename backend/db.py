@@ -273,6 +273,7 @@ def ensure_foto_columns():
             pass
 
 
+
 def uid(prefix="id"):
 
     return prefix + "_" + secrets.token_hex(6)
