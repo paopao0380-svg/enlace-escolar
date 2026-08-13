@@ -2377,7 +2377,7 @@ function renderMensajes(screen, lista, mensajesInst) {
     const foto = (m.fotoUrl || m.foto_url || '').trim();
     if (foto) {
       const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-      cuerpo += `<img class="msg-foto" src="${safe}" alt="Foto adjunta" onclick="verFotoGrande('${safe}')">`;
+      cuerpo += `<img class="msg-foto" src="${safe}" alt="Foto adjunta" loading="lazy" onclick="verFotoGrande(this.src)" onerror="this.style.display=\'none\'">`;
     }
     if ((m.texto || '') && (m.texto || '') !== '(Foto)') {
       cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
@@ -2694,6 +2694,10 @@ async function enviarMensaje() {
     if (mensajeFotoDataUrl) {
       showToast('Subiendo foto…');
       fotoUrl = await subirFotoMensaje();
+      if (!fotoUrl) {
+        showToast('No se obtuvo el enlace de la foto. Intenta de nuevo.');
+        return;
+      }
     }
     const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
     if (mensajeModoTutor) {
@@ -2823,8 +2827,8 @@ function quitarMensajeFoto() {
 }
 
 async function comprimirImagenArchivo(file, maxLado, calidad) {
-  maxLado = maxLado || 1280;
-  calidad = calidad || 0.72;
+  maxLado = maxLado || 960;
+  calidad = calidad || 0.6;
   const bitmap = await createImageBitmap(file);
   let w = bitmap.width, h = bitmap.height;
   if (w > maxLado || h > maxLado) {
@@ -2835,7 +2839,17 @@ async function comprimirImagenArchivo(file, maxLado, calidad) {
   canvas.width = w; canvas.height = h;
   canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
   try { bitmap.close(); } catch (e) {}
-  return canvas.toDataURL('image/jpeg', calidad);
+  // Intentar bajar peso hasta ~80KB (aprox en base64)
+  let q = calidad;
+  let dataUrl = canvas.toDataURL('image/jpeg', q);
+  while (dataUrl.length > 110000 && q > 0.35) {
+    q -= 0.08;
+    dataUrl = canvas.toDataURL('image/jpeg', q);
+  }
+  if (dataUrl.length > 120000 && maxLado > 640) {
+    return comprimirImagenArchivo(file, Math.round(maxLado * 0.75), Math.max(0.4, q));
+  }
+  return dataUrl;
 }
 
 async function onMensajeFotoSeleccionada(ev) {
