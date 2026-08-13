@@ -117,7 +117,10 @@
   .foto-lightbox img{max-width:100%;max-height:92vh;border-radius:8px;object-fit:contain;}
   .foto-lightbox button{position:absolute;top:16px;right:16px;background:#fff;border:none;border-radius:20px;padding:8px 14px;font-weight:600;cursor:pointer;}
 
+  .msg-tabs-main{display:flex;gap:8px;margin:0 0 10px;}
+  .msg-tabs-main .msg-tab{flex:1;padding:11px 8px;font-size:13px;}
   .msg-tabs{display:flex;gap:6px;margin:0 0 12px;padding:4px;background:#eef2f6;border-radius:12px;}
+
   .msg-tab{flex:1;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:11.5px;font-weight:600;padding:9px 4px;border-radius:9px;cursor:pointer;position:relative;line-height:1.2;}
   .msg-tab.active{background:#fff;color:var(--azul);box-shadow:0 1px 3px rgba(15,40,80,0.12);}
   .msg-tab .tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:4px;border-radius:8px;background:#e11d48;color:#fff;font-size:10px;font-weight:700;vertical-align:middle;}
@@ -950,7 +953,9 @@ let me = null;        // usuario actual en caché: {id, nombre, rol, cursoId, cl
 let ready = false;
 let ultimoConteoMensajes = null;
 let mensajeDocenteId = null;
-let msgSubTab = 'autoridades'; // autoridades | docentes | representantes | enviados | recibidos | tutor
+let mensajeTodosDocentes = false;
+let msgMainTab = 'recibidos'; // recibidos | enviados (Tutor)
+let msgSubTab = 'autoridades'; // subcasilla según main
 
 /* ===== Mensajes sin leer ===== */
 function _readKey() {
@@ -1175,7 +1180,7 @@ async function guardarNuevaClave() {
 }
 
 async function cerrarSesion() {
-  session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades';
+  session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades'; msgMainTab = 'recibidos';
   guardarSesionLocal();
   render();
 }
@@ -1187,7 +1192,7 @@ async function confirmarBorrarTodo() {
   closeOv('ovBorrarTodo');
   try {
     await api('POST', '/api/borrar-todo');
-    session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades';
+    session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades'; msgMainTab = 'recibidos';
     guardarSesionLocal();
     showToast('Todos los datos fueron borrados. La app quedó lista para empezar de cero.');
     render();
@@ -1212,7 +1217,7 @@ async function confirmarBorrarMisDatos() {
   }
   try {
     await api('DELETE', `/api/tutores/${me.id}`);
-    session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades';
+    session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades'; msgMainTab = 'recibidos';
     guardarSesionLocal();
     showToast('Curso y datos relacionados eliminados correctamente.');
     render();
@@ -2287,11 +2292,11 @@ async function renderInicioTutor(screen) {
   const conRep = lista.filter(e => e.representanteId);
   screen.innerHTML = `<div class="section-title">${c?.nombre || 'Tu curso'}</div>` +
     `<div class="stu-meta" style="margin-bottom:10px;">Clave del curso: <span class="tag" style="margin-top:0;">${c?.claveCurso || ''}</span></div>` +
-    (conRep.length > 0
-      ? `<div style="margin-bottom:14px;">
-          <button type="button" class="btn-broadcast" onclick="abrirMensajeTodos()">📢 Mensaje a todos los representantes (${conRep.length})</button>
-        </div>`
-      : '') +
+    `<div style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px;">
+      ${conRep.length ? `<button type="button" class="btn-broadcast" onclick="abrirMensajeTodos()">📢 Mensaje a todos los representantes (${conRep.length})</button>` : ''}
+      <button type="button" class="btn-broadcast" style="background:linear-gradient(135deg,#1d4ed8,#2563eb);" onclick="abrirMensajeTodosDocentes()">📚 Mensaje a todos los Docentes</button>
+      <button type="button" class="btn-broadcast" style="background:linear-gradient(135deg,#1e40af,#3b82f6);" onclick="abrirListaDocentesTutor()">👤 Mensaje a un Docente específico</button>
+    </div>` +
     (lista.length === 0
       ? '<div class="empty">Aún no registras estudiantes.<br>Usa el botón + para agregar el primero.</div>'
       : lista.map(e => {
@@ -2455,14 +2460,28 @@ function renderMensajes(screen, lista, mensajesInst) {
   let tabs = [];
   if (me.rol === 'tutor') {
     const enviadosT = window._mensajesTutorEnviados || [];
-    tabs = [
-      { id: 'autoridades', label: 'Autoridades', unread: uAuth },
-      { id: 'docentes', label: 'Docentes', unread: uDoc },
-      { id: 'representantes', label: 'Representantes', unread: uRep },
-      { id: 'enviados', label: 'Enviados', unread: 0 },
-    ];
     window._tutorEnviadosCache = enviadosT;
-    if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
+    // Nivel 1: Recibidos | Enviados
+    // Nivel 2 depende del nivel 1
+    if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'recibidos';
+    if (msgMainTab === 'recibidos') {
+      tabs = [
+        { id: 'autoridades', label: 'Autoridades', unread: uAuth },
+        { id: 'docentes', label: 'Docentes', unread: uDoc },
+        { id: 'representantes', label: 'Representantes', unread: uRep },
+      ];
+      if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
+    } else {
+      const envDoc = enviadosT.filter(m => m.destinoTipo === 'docente');
+      const envRep = enviadosT.filter(m => m.destinoTipo === 'representante');
+      tabs = [
+        { id: 'env_docentes', label: 'Docentes', unread: 0 },
+        { id: 'env_representantes', label: 'Representantes', unread: 0 },
+      ];
+      window._tutorEnvDoc = envDoc;
+      window._tutorEnvRep = envRep;
+      if (msgSubTab !== 'env_docentes' && msgSubTab !== 'env_representantes') msgSubTab = 'env_docentes';
+    }
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
     tabs = [
@@ -2487,7 +2506,15 @@ function renderMensajes(screen, lista, mensajesInst) {
     msgSubTab = 'todos';
   }
 
-  const tabsHtml = `<div class="msg-tabs">` + tabs.map(t =>
+  let mainTabsHtml = '';
+  if (me.rol === 'tutor') {
+    const uRec = uAuth + uDoc + uRep;
+    mainTabsHtml = `<div class="msg-tabs msg-tabs-main">` +
+      `<button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="cambiarMsgMainTab('recibidos')">Recibidos${badge(uRec)}</button>` +
+      `<button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="cambiarMsgMainTab('enviados')">Enviados</button>` +
+      `</div>`;
+  }
+  const tabsHtml = mainTabsHtml + `<div class="msg-tabs">` + tabs.map(t =>
     `<button type="button" class="msg-tab ${t.id === msgSubTab ? 'active' : ''}" onclick="cambiarMsgSubTab('${t.id}')">${t.label}${badge(t.unread)}</button>`
   ).join('') + `</div>`;
 
@@ -2505,19 +2532,25 @@ function renderMensajes(screen, lista, mensajesInst) {
     panel = deRep.length
       ? deRep.map(m => cardMsg(m, { chip: 'Representante' })).join('')
       : '<div class="msg-empty-sec">No hay mensajes de representantes.</div>';
-  } else if (msgSubTab === 'enviados' && me.rol === 'tutor') {
-    const env = window._tutorEnviadosCache || [];
+  } else if (msgSubTab === 'env_docentes' && me.rol === 'tutor') {
+    const env = window._tutorEnvDoc || [];
     panel = env.length
-      ? env.map(m => {
-          const dest = m.destinoTipo === 'docente' ? ('Docente: ' + (m.destinoNombre || '')) : ('Representante: ' + (m.destinoNombre || ''));
-          return cardMsg(m, {
-            paraNombre: dest,
-            chip: m.destinoTipo === 'docente' ? 'Enviado a Docente' : 'Enviado a Representante',
-            mostrarEstudiante: m.destinoTipo !== 'docente',
-            ocultarRemitente: true,
-          });
-        }).join('')
-      : '<div class="msg-empty-sec">Aún no has enviado mensajes.</div>';
+      ? env.map(m => cardMsg(m, {
+          paraNombre: 'Docente: ' + (m.destinoNombre || ''),
+          chip: 'Enviado a Docente',
+          mostrarEstudiante: false,
+          ocultarRemitente: true,
+        })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes a docentes.</div>';
+  } else if (msgSubTab === 'env_representantes' && me.rol === 'tutor') {
+    const env = window._tutorEnvRep || [];
+    panel = env.length
+      ? env.map(m => cardMsg(m, {
+          paraNombre: 'Representante: ' + (m.destinoNombre || ''),
+          chip: 'Enviado a Representante',
+          ocultarRemitente: true,
+        })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes a representantes.</div>';
   } else if (msgSubTab === 'tutor' && me.rol === 'docente') {
     const env = window._enviadosTutorCache || [];
     panel = env.length
@@ -2541,6 +2574,18 @@ function renderMensajes(screen, lista, mensajesInst) {
   screen.innerHTML = banner + tabsHtml + `<div class="msg-tab-panel">${panel}</div>`;
 
   setTimeout(function() { autoMarcarLeidosVisibles(lista, mensajesInst); }, 1500);
+}
+
+function cambiarMsgMainTab(id) {
+  msgMainTab = id;
+  if (id === 'recibidos') msgSubTab = 'autoridades';
+  else msgSubTab = 'env_docentes';
+  const screen = document.getElementById('screen');
+  if (screen && window._msgsCache) {
+    renderMensajes(screen, window._msgsCache.lista, window._msgsCache.inst);
+  } else {
+    render();
+  }
 }
 
 function cambiarMsgSubTab(id) {
@@ -2691,6 +2736,7 @@ function abrirMensajeAlTutorDesdeRep(estudianteId, tutorNombre) {
 async function abrirMensaje(estudianteId) {
   mensajeModoTutor = false;
   mensajeDocenteId = null;
+  mensajeTodosDocentes = false;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = estudianteId;
   mensajeTipo = 'alert';
@@ -2708,6 +2754,32 @@ function seleccionarTipo(t) {
     b.classList.remove('sel-alert', 'sel-sage', 'sel-info');
     if (b.dataset.tipo === t) b.classList.add('sel-' + t);
   });
+}
+
+
+async function abrirMensajeTodosDocentes() {
+  let docs = window._docentesDelCurso;
+  if (!docs || !docs.length) {
+    try {
+      docs = (await api('GET', '/api/cursos/' + me.cursoId + '/docentes')).docentes || [];
+      window._docentesDelCurso = docs;
+    } catch (e) { showToast(e.message); return; }
+  }
+  if (!docs.length) {
+    showToast('Aún no hay docentes vinculados a tu curso.');
+    return;
+  }
+  mensajeModoTutor = false;
+  mensajeDocenteId = null;
+  mensajeTodosDocentes = true;
+  mensajeEstudianteId = null;
+  mensajeTipo = 'info';
+  restaurarTipoMensajeUI();
+  document.getElementById('mensajeDestino').textContent = 'Se enviará a TODOS los docentes del curso (' + docs.length + ')';
+  document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
+  seleccionarTipo('info');
+  document.getElementById('ovMensaje').classList.remove('hidden');
 }
 
 async function abrirListaDocentesTutor() {
@@ -2767,6 +2839,20 @@ async function enviarMensaje() {
       }
     }
     const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
+    if (mensajeTodosDocentes) {
+      const r = await api('POST', '/api/tutores/mensajes-docentes-todos', {
+        tutorId: me.id,
+        tipo: mensajeTipo,
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
+      });
+      mensajeTodosDocentes = false;
+      quitarMensajeFoto();
+      closeOv('ovMensaje');
+      showToast('Mensaje enviado a ' + (r.enviados || 0) + ' docente(s).');
+      render();
+      return;
+    }
     if (mensajeDocenteId) {
       await api('POST', '/api/tutores/mensajes-docente', {
         tutorId: me.id,
@@ -2828,6 +2914,7 @@ async function enviarMensaje() {
 function abrirMensajeTodos() {
   mensajeModoTutor = false;
   mensajeDocenteId = null;
+  mensajeTodosDocentes = false;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = '__TODOS__';
   mensajeTipo = 'alert';
