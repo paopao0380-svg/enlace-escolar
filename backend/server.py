@@ -579,12 +579,14 @@ def h_confirmar_mensaje(params, body):
 
 def h_mensajes_tutor(params, body):
     lista = rows(
-        '''SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto,
-                  u.nombre as remitente_nombre
-           FROM mensajes m
-           JOIN estudiantes e ON e.id = m.estudiante_id
-           JOIN usuarios u ON u.id = m.remitente_id
-           WHERE e.tutor_id = ? ORDER BY m.fecha ASC''',
+        "SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto, "
+        "u.nombre as remitente_nombre, "
+        "(SELECT dc.asignatura FROM docente_cursos dc "
+        " WHERE dc.docente_id = m.remitente_id AND dc.curso_id = e.curso_id LIMIT 1) as asignatura "
+        "FROM mensajes m "
+        "JOIN estudiantes e ON e.id = m.estudiante_id "
+        "JOIN usuarios u ON u.id = m.remitente_id "
+        "WHERE e.tutor_id = ? ORDER BY m.fecha ASC",
         (params['id'],),
     )
     out = []
@@ -593,33 +595,42 @@ def h_mensajes_tutor(params, body):
         d['estudianteNombre'] = m['estudiante_nombre']
         d['remitenteNombre'] = m['remitente_nombre']
         d['remitenteContacto'] = m['rep_contacto'] if m.get('rep_contacto') else ''
+        d['asignatura'] = m.get('asignatura') or ''
         out.append(d)
     return 200, {'mensajes': out}
+
 
 
 def h_mensajes_docente(params, body):
     lista = rows(
-        '''SELECT m.*, e.nombre as estudiante_nombre FROM mensajes m
-           JOIN estudiantes e ON e.id = m.estudiante_id
-           WHERE m.remitente_id = ? AND m.remitente_rol = 'docente' ORDER BY m.fecha ASC''',
+        "SELECT m.*, e.nombre as estudiante_nombre, "
+        "(SELECT dc.asignatura FROM docente_cursos dc "
+        " WHERE dc.docente_id = m.remitente_id AND dc.curso_id = e.curso_id LIMIT 1) as asignatura "
+        "FROM mensajes m "
+        "JOIN estudiantes e ON e.id = m.estudiante_id "
+        "WHERE m.remitente_id = ? AND m.remitente_rol = 'docente' ORDER BY m.fecha ASC",
         (params['id'],),
     )
     out = []
     for m in lista:
         d = ser_mensaje(m)
         d['estudianteNombre'] = m['estudiante_nombre']
+        d['asignatura'] = m.get('asignatura') or ''
         out.append(d)
     return 200, {'mensajes': out}
 
 
+
 def h_mensajes_representante(params, body):
     lista = rows(
-        '''SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto,
-                  u.nombre as remitente_nombre
-           FROM mensajes m
-           JOIN estudiantes e ON e.id = m.estudiante_id
-           JOIN usuarios u ON u.id = m.remitente_id
-           WHERE e.representante_id = ? ORDER BY m.fecha ASC''',
+        "SELECT m.*, e.nombre as estudiante_nombre, e.representante_contacto as rep_contacto, "
+        "u.nombre as remitente_nombre, "
+        "(SELECT dc.asignatura FROM docente_cursos dc "
+        " WHERE dc.docente_id = m.remitente_id AND dc.curso_id = e.curso_id LIMIT 1) as asignatura "
+        "FROM mensajes m "
+        "JOIN estudiantes e ON e.id = m.estudiante_id "
+        "JOIN usuarios u ON u.id = m.remitente_id "
+        "WHERE e.representante_id = ? ORDER BY m.fecha ASC",
         (params['id'],),
     )
     out = []
@@ -628,11 +639,12 @@ def h_mensajes_representante(params, body):
         d['estudianteNombre'] = m['estudiante_nombre']
         d['remitenteNombre'] = m['remitente_nombre']
         d['remitenteContacto'] = m['rep_contacto'] if m.get('rep_contacto') else ''
+        d['asignatura'] = m.get('asignatura') or ''
         out.append(d)
     return 200, {'mensajes': out}
 
 
-# --- Borrado independiente por usuario ---
+
 def h_borrar_tutor(params, body):
     """Solo el tutor puede borrar su curso, estudiantes, mensajes y representantes vinculados."""
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol='tutor'", (params['id'],))
