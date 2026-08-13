@@ -100,6 +100,13 @@
   .msg-chain{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;}
   .chip{font-size:10px;font-family:'IBM Plex Mono',monospace;background:rgba(255,255,255,0.6);padding:2px 6px;border-radius:5px;color:var(--ink);}
   .unread-dot{width:7px;height:7px;border-radius:50%;background:var(--brass);display:inline-block;margin-right:6px;}
+  .msg-section{margin:16px 0 10px;}
+  .msg-section-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:var(--ink);margin:0 0 8px;padding-bottom:6px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:8px;}
+  .msg-section-title .sec-count{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;background:var(--azul);color:#fff;padding:2px 8px;border-radius:10px;}
+  .msg-asignatura{font-size:12px;font-weight:700;color:var(--azul);margin:4px 0 2px;letter-spacing:0.02em;}
+  .msg-asignatura span{font-weight:500;color:var(--muted);}
+  .msg-empty-sec{font-size:12px;color:var(--muted);padding:8px 0 4px;}
+
 
   .overlay{position:fixed;inset:0;background:rgba(20,24,20,0.5);display:flex;align-items:flex-end;justify-content:center;z-index:50;}
   .overlay.hidden{display:none;}
@@ -2302,7 +2309,6 @@ function renderMensajes(screen, lista, mensajesInst) {
   mensajesInst = mensajesInst || [];
   lista = lista || [];
   window._msgsCache = { lista: lista, inst: mensajesInst };
-  const ordenada = lista.slice().reverse();
   const unread = contarSinLeer(lista, mensajesInst);
 
   const banner = unread > 0
@@ -2315,115 +2321,124 @@ function renderMensajes(screen, lista, mensajesInst) {
       </div>`
     : '';
 
-  const bloqueInst = (me.rol === 'tutor' || me.rol === 'docente') && mensajesInst.length
-    ? `<div class="section-title">${me.rol === 'tutor' ? 'Comunicados y mensajes del equipo' : 'Comunicados institucionales'}</div>` + mensajesInst.map(m => {
-        const rolAut = m.remitenteRol === 'rector' ? 'Rector'
-          : m.remitenteRol === 'inspector' ? 'Inspector'
-          : m.remitenteRol === 'dece' ? 'DECE'
-          : m.remitenteRol === 'docente' ? 'Docente'
-          : m.remitenteRol === 'tutor' ? 'Tutor'
-          : 'Autoridad';
-        const tipoTxt = tipoLabel(m.tipo || 'info');
-        const sinLeer = !esMensajeLeido(m) && !(me && m.remitenteId === me.id);
-        return `
-        <div class="msg-card tipo-${m.tipo||'info'}${sinLeer ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
-          <div class="msg-head">
-            <span class="msg-tipo">${sinLeer ? '<span class="msg-nuevo">Nuevo</span>' : ''}${tipoTxt}</span>
-            <span class="msg-date">${fmtFecha(m.fecha)}</span>
-          </div>
-          <div class="msg-stu">${escapeHtml(m.remitenteNombre || rolAut)}</div>
-          <div class="msg-text">${escapeHtml(m.texto)}</div>
-          <div class="msg-chain"><span class="chip">${rolAut}</span></div>
-        </div>`;
-      }).join('')
-    : '';
+  function rolLabel(rol) {
+    return ({tutor:'Tutor',docente:'Docente',representante:'Representante',rector:'Rector',inspector:'Inspector',dece:'DECE'}[rol] || rol || '');
+  }
 
-  const enviadosTutor = (me.rol === 'docente' && window._mensajesDocenteATutor && window._mensajesDocenteATutor.length)
-    ? `<div class="section-title">Mensajes al Tutor</div>` + window._mensajesDocenteATutor.map(m => {
-        const tipoTxt = tipoLabel(m.tipo || 'info');
-        return `
-        <div class="msg-card tipo-${m.tipo||'info'}">
-          <div class="msg-head">
-            <span class="msg-tipo">${tipoTxt}</span>
-            <span class="msg-date">${fmtFecha(m.fecha)}</span>
-          </div>
-          <div class="msg-stu">Para: ${escapeHtml(m.destinoNombre || 'Tutor')}</div>
-          <div class="msg-text">${escapeHtml(m.texto)}</div>
-          <div class="msg-chain"><span class="chip">Docente → Tutor</span></div>
-        </div>`;
-      }).join('')
-    : '';
-
-  const tituloLista = me.rol === 'docente' ? 'Mensajes a representantes'
-    : me.rol === 'representante' ? 'Mensajes (enviados y recibidos)'
-    : 'Mensajes recibidos';
-
-  screen.innerHTML = banner + bloqueInst + enviadosTutor + `<div class="section-title">${tituloLista}</div>` +
-    (ordenada.length === 0 ? '<div class="empty">No hay mensajes todavía.</div>' :
-      ordenada.map(m => {
-        const sinLeer = !esMensajeLeido(m);
-        const esMio = me && m.remitenteId === me.id;
-        const head = (me.rol === 'representante')
-          ? `<div class="msg-head"><span class="msg-tipo">${sinLeer && !esMio ? '<span class="msg-nuevo">Nuevo</span>' : ''}Mensaje</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`
-          : `<div class="msg-head"><span class="msg-tipo">${sinLeer && !esMio ? '<span class="msg-nuevo">Nuevo</span>' : ''}${tipoLabel(m.tipo)}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>`;
-        let quien = '';
-        if (m.remitenteNombre) quien = `<div class="msg-stu">${escapeHtml(m.remitenteNombre)}</div>`;
-        if (m.estudianteNombre) quien += `<div class="stu-meta" style="margin:0 0 4px;">Estudiante: ${escapeHtml(m.estudianteNombre)}</div>`;
-        return `
-        <div class="msg-card tipo-${m.tipo||'info'}${sinLeer && !esMio ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
-          ${head}
-          ${quien}
-          <div class="msg-text">${escapeHtml(m.texto)}</div>
-          <div class="msg-chain">
-            <span class="chip">${escapeHtml((m.remitenteRol || '').toString())}</span>
-            ${me.rol === 'tutor' ? `<span class="chip">${m.confirmadoTutor ? '✓ Leído' : 'Sin leer'}</span>` : ''}
-            ${me.rol === 'representante' ? `<span class="chip">${m.confirmadoRepresentante ? '✓ Leído' : 'Sin leer'}</span>` : ''}
-          </div>
-        </div>`;
-      }).join(''));
-
-  // Al abrir la pestaña, marcar como leídos tras un momento (el usuario ya los ve)
-  setTimeout(function() {
-    autoMarcarLeidosVisibles(lista, mensajesInst);
-  }, 1200);
-}
-
-async function autoMarcarLeidosVisibles(lista, mensajesInst) {
-  if (currentTab !== 'mensajes') return;
-  const set = obtenerLeidosSet();
-  let cambio = false;
-  for (const m of (lista || [])) {
-    if (!m || !m.id) continue;
-    if (me && m.remitenteId === me.id) continue;
-    if (!esMensajeLeido(m)) {
-      set.add(String(m.id));
-      cambio = true;
-      if (me.rol === 'tutor' && !m.confirmadoTutor) {
-        try { await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoTutor' }); m.confirmadoTutor = true; } catch (e) {}
-      }
-      if (me.rol === 'representante' && !m.confirmadoRepresentante) {
-        try { await api('PATCH', '/api/mensajes/' + m.id + '/confirmar', { campo: 'confirmadoRepresentante' }); m.confirmadoRepresentante = true; } catch (e) {}
-      }
+  function cardMsg(m, opts) {
+    opts = opts || {};
+    const sinLeer = !esMensajeLeido(m) && !(me && m.remitenteId === me.id);
+    const esMio = me && m.remitenteId === me.id;
+    const tipoTxt = opts.simpleTipo ? 'Mensaje' : tipoLabel(m.tipo || 'info');
+    const asg = (m.asignatura || '').trim();
+    let cuerpo = '';
+    if ((m.remitenteRol === 'docente' || opts.forzarAsignatura) && asg) {
+      cuerpo += `<div class="msg-asignatura">Asignatura: <span>${escapeHtml(asg)}</span></div>`;
     }
+    if (opts.paraNombre) {
+      cuerpo += `<div class="msg-stu">Para: ${escapeHtml(opts.paraNombre)}</div>`;
+    } else if (m.remitenteNombre && !opts.ocultarRemitente) {
+      cuerpo += `<div class="msg-stu">${escapeHtml(m.remitenteNombre)}</div>`;
+    }
+    if (m.estudianteNombre && opts.mostrarEstudiante !== false) {
+      cuerpo += `<div class="stu-meta" style="margin:0 0 4px;">Estudiante: ${escapeHtml(m.estudianteNombre)}</div>`;
+    }
+    cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
+    const chips = [];
+    if (opts.chip) chips.push(opts.chip);
+    else if (m.remitenteRol) chips.push(rolLabel(m.remitenteRol));
+    if (me.rol === 'tutor') chips.push(m.confirmadoTutor ? '✓ Leído' : 'Sin leer');
+    if (me.rol === 'representante' && !esMio) chips.push(m.confirmadoRepresentante ? '✓ Leído' : 'Sin leer');
+    return `
+      <div class="msg-card tipo-${m.tipo||'info'}${sinLeer && !esMio ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
+        <div class="msg-head">
+          <span class="msg-tipo">${sinLeer && !esMio ? '<span class="msg-nuevo">Nuevo</span>' : ''}${tipoTxt}</span>
+          <span class="msg-date">${fmtFecha(m.fecha)}</span>
+        </div>
+        ${cuerpo}
+        <div class="msg-chain">${chips.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join('')}</div>
+      </div>`;
   }
-  for (const m of (mensajesInst || [])) {
-    if (!m || !m.id) continue;
-    if (me && m.remitenteId === me.id) continue;
-    if (!esMensajeLeido(m)) { set.add(String(m.id)); cambio = true; }
+
+  function section(title, itemsHtml, count) {
+    if (itemsHtml === null || itemsHtml === undefined) return '';
+    const cnt = count > 0 ? `<span class="sec-count">${count}</span>` : '';
+    return `<div class="msg-section"><div class="msg-section-title">${title}${cnt}</div>${itemsHtml}</div>`;
   }
-  if (cambio) {
-    guardarLeidosSet(set);
-    // Actualizar badge sin parpadeo fuerte
-    const badge = document.querySelector('.tabbar .badge');
-    if (badge) badge.remove();
-    document.querySelectorAll('.msg-unread').forEach(function(el) {
-      el.classList.remove('msg-unread');
-      const n = el.querySelector('.msg-nuevo');
-      if (n) n.remove();
-    });
-    const ban = document.querySelector('.unread-banner');
-    if (ban) ban.remove();
+
+  const instAuth = [];
+  const instDoc = [];
+  for (const m of mensajesInst) {
+    const r = (m.remitenteRol || '').toLowerCase();
+    if (r === 'docente' || r === 'tutor') instDoc.push(m);
+    else instAuth.push(m);
   }
+
+  const deDocente = [];
+  const deRep = [];
+  const deTutor = [];
+  const deOtros = [];
+  for (const m of lista) {
+    const r = (m.remitenteRol || '').toLowerCase();
+    if (r === 'docente') deDocente.push(m);
+    else if (r === 'representante') deRep.push(m);
+    else if (r === 'tutor') deTutor.push(m);
+    else deOtros.push(m);
+  }
+
+  const byFechaDesc = (a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''));
+  instAuth.sort(byFechaDesc);
+  instDoc.sort(byFechaDesc);
+  deDocente.sort(byFechaDesc);
+  deRep.sort(byFechaDesc);
+  deTutor.sort(byFechaDesc);
+
+  let htmlOut = banner;
+
+  if (me.rol === 'tutor' || me.rol === 'docente') {
+    const cards = instAuth.map(m => cardMsg(m, { chip: rolLabel(m.remitenteRol), mostrarEstudiante: false })).join('');
+    htmlOut += section('Comunicados de Autoridades', cards || '<div class="msg-empty-sec">No hay comunicados de autoridades.</div>', instAuth.length);
+  }
+
+  if (me.rol === 'tutor') {
+    const cardsInst = instDoc.map(m => cardMsg(m, { chip: 'Docente', mostrarEstudiante: false, forzarAsignatura: true })).join('');
+    const cardsEst = deDocente.map(m => cardMsg(m, { chip: 'Docente' })).join('');
+    const n = instDoc.length + deDocente.length;
+    htmlOut += section('Mensajes de Docentes', (cardsInst + cardsEst) || '<div class="msg-empty-sec">No hay mensajes de docentes.</div>', n);
+
+    const cardsR = deRep.map(m => cardMsg(m, { chip: 'Representante' })).join('');
+    htmlOut += section('Mensajes de Representantes', cardsR || '<div class="msg-empty-sec">No hay mensajes de representantes.</div>', deRep.length);
+  }
+
+  if (me.rol === 'docente') {
+    const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
+    const cardsT = enviadosTutor.map(m => cardMsg(m, {
+      paraNombre: m.destinoNombre || 'Tutor',
+      chip: 'Docente → Tutor',
+      mostrarEstudiante: false,
+      ocultarRemitente: true,
+      forzarAsignatura: true,
+    })).join('');
+    htmlOut += section('Mensajes al Tutor', cardsT || '<div class="msg-empty-sec">Aún no has enviado mensajes al tutor.</div>', enviadosTutor.length);
+
+    const cardsR = deDocente.map(m => cardMsg(m, { chip: 'A representante', ocultarRemitente: true })).join('');
+    htmlOut += section('Mensajes a Representantes', cardsR || '<div class="msg-empty-sec">Aún no has enviado mensajes a representantes.</div>', deDocente.length);
+  }
+
+  if (me.rol === 'representante') {
+    const recibidos = lista.filter(m => m.remitenteId !== me.id).sort(byFechaDesc);
+    const enviados = lista.filter(m => m.remitenteId === me.id).sort(byFechaDesc);
+    htmlOut += section('Mensajes recibidos', recibidos.map(m => cardMsg(m)).join('') || '<div class="msg-empty-sec">No hay mensajes recibidos.</div>', recibidos.length);
+    htmlOut += section('Mensajes enviados', enviados.map(m => cardMsg(m, { chip: 'Enviado al Tutor', simpleTipo: true })).join('') || '<div class="msg-empty-sec">Aún no has enviado mensajes.</div>', enviados.length);
+  }
+
+  if (!['tutor','docente','representante'].includes(me.rol)) {
+    const all = lista.slice().sort(byFechaDesc);
+    htmlOut += section('Mensajes', all.map(m => cardMsg(m)).join('') || '<div class="empty">No hay mensajes todavía.</div>', all.length);
+  }
+
+  screen.innerHTML = htmlOut;
+  setTimeout(function() { autoMarcarLeidosVisibles(lista, mensajesInst); }, 1200);
 }
 
 async function marcarLeido(mensajeId, campo) {

@@ -1,5 +1,5 @@
 // Enlace Escolar SW + Push
-const CACHE_NAME = 'enlace-escolar-v20260812-unread';
+const CACHE_NAME = 'enlace-escolar-v20260812-msgorg';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
