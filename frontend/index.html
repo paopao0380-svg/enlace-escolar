@@ -949,6 +949,7 @@ let session = null;   // {usuarioId}
 let me = null;        // usuario actual en caché: {id, nombre, rol, cursoId, claveAcceso}
 let ready = false;
 let ultimoConteoMensajes = null;
+let mensajeDocenteId = null;
 let msgSubTab = 'autoridades'; // autoridades | docentes | representantes | enviados | recibidos | tutor
 
 /* ===== Mensajes sin leer ===== */
@@ -2052,6 +2053,14 @@ async function renderApp(root) {
     } else if (me.rol === 'tutor') {
       mensajesList = (await api('GET', `/api/tutores/${me.id}/mensajes`)).mensajes;
       mensajesInst = (await api('GET', `/api/usuarios/${me.id}/mensajes-institucionales`)).mensajes || [];
+      try {
+        window._mensajesTutorEnviados = (await api('GET', `/api/tutores/${me.id}/mensajes-enviados`)).mensajes || [];
+      } catch (_) { window._mensajesTutorEnviados = []; }
+      try {
+        if (me.cursoId) {
+          window._docentesDelCurso = (await api('GET', `/api/cursos/${me.cursoId}/docentes`)).docentes || [];
+        } else { window._docentesDelCurso = []; }
+      } catch (_) { window._docentesDelCurso = []; }
     } else if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') {
       mensajesList = (await api('GET', `/api/autoridades/${me.id}/mensajes`)).mensajes || [];
     } else {
@@ -2420,8 +2429,8 @@ function renderMensajes(screen, lista, mensajesInst) {
   const instDoc = [];
   for (const m of mensajesInst) {
     const r = (m.remitenteRol || '').toLowerCase();
-    if (r === 'docente' || r === 'tutor') instDoc.push(m);
-    else instAuth.push(m);
+    if (r === 'docente') instDoc.push(m);
+    else instAuth.push(m); // autoridades + tutor
   }
   const deDocente = [];
   const deRep = [];
@@ -2445,11 +2454,14 @@ function renderMensajes(screen, lista, mensajesInst) {
   // Tabs según rol
   let tabs = [];
   if (me.rol === 'tutor') {
+    const enviadosT = window._mensajesTutorEnviados || [];
     tabs = [
       { id: 'autoridades', label: 'Autoridades', unread: uAuth },
       { id: 'docentes', label: 'Docentes', unread: uDoc },
       { id: 'representantes', label: 'Representantes', unread: uRep },
+      { id: 'enviados', label: 'Enviados', unread: 0 },
     ];
+    window._tutorEnviadosCache = enviadosT;
     if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
@@ -2493,6 +2505,19 @@ function renderMensajes(screen, lista, mensajesInst) {
     panel = deRep.length
       ? deRep.map(m => cardMsg(m, { chip: 'Representante' })).join('')
       : '<div class="msg-empty-sec">No hay mensajes de representantes.</div>';
+  } else if (msgSubTab === 'enviados' && me.rol === 'tutor') {
+    const env = window._tutorEnviadosCache || [];
+    panel = env.length
+      ? env.map(m => {
+          const dest = m.destinoTipo === 'docente' ? ('Docente: ' + (m.destinoNombre || '')) : ('Representante: ' + (m.destinoNombre || ''));
+          return cardMsg(m, {
+            paraNombre: dest,
+            chip: m.destinoTipo === 'docente' ? 'Enviado a Docente' : 'Enviado a Representante',
+            mostrarEstudiante: m.destinoTipo !== 'docente',
+            ocultarRemitente: true,
+          });
+        }).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes.</div>';
   } else if (msgSubTab === 'tutor' && me.rol === 'docente') {
     const env = window._enviadosTutorCache || [];
     panel = env.length
@@ -2665,6 +2690,7 @@ function abrirMensajeAlTutorDesdeRep(estudianteId, tutorNombre) {
 
 async function abrirMensaje(estudianteId) {
   mensajeModoTutor = false;
+  mensajeDocenteId = null;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = estudianteId;
   mensajeTipo = 'alert';
@@ -2683,6 +2709,47 @@ function seleccionarTipo(t) {
     if (b.dataset.tipo === t) b.classList.add('sel-' + t);
   });
 }
+
+async function abrirListaDocentesTutor() {
+  let docs = window._docentesDelCurso;
+  if (!docs || !docs.length) {
+    try {
+      docs = (await api('GET', '/api/cursos/' + me.cursoId + '/docentes')).docentes || [];
+      window._docentesDelCurso = docs;
+    } catch (e) { showToast(e.message); return; }
+  }
+  if (!docs.length) {
+    showToast('Aún no hay docentes vinculados a tu curso.');
+    return;
+  }
+  const ov = document.getElementById('ovListaDocentes');
+  if (ov) {
+    const box = document.getElementById('listaDocentesBox');
+    box.innerHTML = docs.map(d => {
+      const asg = d.asignatura ? (' — ' + d.asignatura) : '';
+      return `<button type="button" class="btn" style="width:100%;margin-bottom:8px;text-align:left;justify-content:flex-start;" onclick="abrirMensajeADocente('${d.id}', '${String(d.nombre||'').replace(/'/g,"\\'")}')">${escapeHtml(d.nombre)}${escapeHtml(asg)}</button>`;
+    }).join('');
+    ov.classList.remove('hidden');
+    return;
+  }
+  // fallback: primer docente
+  abrirMensajeADocente(docs[0].id, docs[0].nombre);
+}
+
+function abrirMensajeADocente(docenteId, nombre) {
+  closeOv('ovListaDocentes');
+  mensajeModoTutor = false;
+  mensajeDocenteId = docenteId;
+  mensajeEstudianteId = null;
+  mensajeTipo = 'info';
+  restaurarTipoMensajeUI();
+  document.getElementById('mensajeDestino').textContent = 'Para el Docente: ' + (nombre || '');
+  document.getElementById('mensajeTexto').value = '';
+  try { quitarMensajeFoto(); } catch (e) {}
+  seleccionarTipo('info');
+  document.getElementById('ovMensaje').classList.remove('hidden');
+}
+
 async function enviarMensaje() {
   const texto = document.getElementById('mensajeTexto').value.trim();
   if (!texto && !mensajeFotoDataUrl) {
@@ -2700,6 +2767,21 @@ async function enviarMensaje() {
       }
     }
     const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
+    if (mensajeDocenteId) {
+      await api('POST', '/api/tutores/mensajes-docente', {
+        tutorId: me.id,
+        docenteId: mensajeDocenteId,
+        tipo: mensajeTipo,
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
+      });
+      mensajeDocenteId = null;
+      quitarMensajeFoto();
+      closeOv('ovMensaje');
+      showToast('Mensaje enviado al Docente.');
+      render();
+      return;
+    }
     if (mensajeModoTutor) {
       let mis = [];
       try { mis = (await api('GET', '/api/docentes/' + me.id + '/cursos')).cursos || []; } catch (_) {}
@@ -2745,6 +2827,7 @@ async function enviarMensaje() {
 
 function abrirMensajeTodos() {
   mensajeModoTutor = false;
+  mensajeDocenteId = null;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = '__TODOS__';
   mensajeTipo = 'alert';
