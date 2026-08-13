@@ -265,7 +265,16 @@ def init_db():
         execute_write(s)
 
 
+def ensure_foto_columns():
+    for table in ("mensajes", "mensajes_institucionales"):
+        try:
+            execute_write("ALTER TABLE %s ADD COLUMN foto_url TEXT" % table)
+        except Exception:
+            pass
+
+
 def uid(prefix="id"):
+
     return prefix + "_" + secrets.token_hex(6)
 
 

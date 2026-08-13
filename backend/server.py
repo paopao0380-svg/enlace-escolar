@@ -74,6 +74,7 @@ def ser_mensaje(m):
         'id': m['id'], 'estudianteId': m['estudiante_id'], 'remitenteId': m['remitente_id'],
         'remitenteRol': m['remitente_rol'], 'tipo': m['tipo'], 'texto': m['texto'], 'fecha': m['fecha'],
         'confirmadoTutor': bool(m['confirmado_tutor']), 'confirmadoRepresentante': bool(m['confirmado_representante']),
+        'fotoUrl': (m.get('foto_url') if hasattr(m, 'get') else (m['foto_url'] if 'foto_url' in m else None)) or '',
     }
 
 
@@ -554,20 +555,34 @@ def h_crear_mensaje(params, body):
     remitente_id = body.get('remitenteId')
     remitente_rol = body.get('remitenteRol')
     tipo = body.get('tipo')
-    texto = body.get('texto')
-    if not all([estudiante_id, remitente_id, remitente_rol, tipo, texto]):
+    texto = (body.get('texto') or '').strip()
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not all([estudiante_id, remitente_id, remitente_rol, tipo]):
         raise ApiError(400, 'Faltan datos del mensaje.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
     mid = uid('m')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if remitente_rol not in ('tutor', 'docente', 'representante'):
         raise ApiError(400, 'Rol de remitente no válido.')
     confirmado_tutor = 1 if remitente_rol == 'tutor' else 0
     confirmado_rep = 1 if remitente_rol == 'representante' else 0
-    run(
-        '''INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante)
-           VALUES (?,?,?,?,?,?,?,?,?)''',
-        (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep),
-    )
+    try:
+        run(
+            "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep, foto_url or None),
+        )
+    except Exception:
+        run(
+            "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep),
+        )
+    try:
+        notificar_destinatarios_mensaje(estudiante_id, remitente_id, remitente_rol, texto if texto != '(Foto)' else 'Foto')
+    except Exception as e:
+        print('notify error:', e)
     return 201, {'mensaje': ser_mensaje(row('SELECT * FROM mensajes WHERE id = ?', (mid,)))}
 
 
@@ -1118,7 +1133,77 @@ def h_admin_borrar_todo(params, body):
 
 
 # ---------- tabla de rutas ----------
+
+def _upload_foto_bytes(raw, filename="foto.jpg"):
+    import urllib.request
+    import uuid
+    cloud = (os.environ.get("CLOUDINARY_CLOUD_NAME") or "").strip()
+    preset = (os.environ.get("CLOUDINARY_UPLOAD_PRESET") or "").strip()
+    if cloud and preset:
+        boundary = "----EE" + uuid.uuid4().hex
+        parts = []
+        parts.append(("--%s\r\nContent-Disposition: form-data; name=\"upload_preset\"\r\n\r\n%s\r\n" % (boundary, preset)).encode())
+        parts.append(("--%s\r\nContent-Disposition: form-data; name=\"file\"; filename=\"%s\"\r\nContent-Type: image/jpeg\r\n\r\n" % (boundary, filename)).encode() + raw + b"\r\n")
+        parts.append(("--%s--\r\n" % boundary).encode())
+        body = b"".join(parts)
+        req = urllib.request.Request(
+            "https://api.cloudinary.com/v1_1/%s/image/upload" % cloud,
+            data=body,
+            method="POST",
+            headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary},
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        url = data.get("secure_url") or data.get("url")
+        if not url:
+            raise ApiError(500, "No se pudo subir la foto (Cloudinary).")
+        return url
+    boundary = "----EE" + uuid.uuid4().hex
+    body = b""
+    body += ("--%s\r\nContent-Disposition: form-data; name=\"reqtype\"\r\n\r\nfileupload\r\n" % boundary).encode()
+    body += ("--%s\r\nContent-Disposition: form-data; name=\"fileToUpload\"; filename=\"%s\"\r\nContent-Type: image/jpeg\r\n\r\n" % (boundary, filename)).encode() + raw + b"\r\n"
+    body += ("--%s--\r\n" % boundary).encode()
+    req = urllib.request.Request(
+        "https://catbox.moe/user/api.php",
+        data=body,
+        method="POST",
+        headers={"Content-Type": "multipart/form-data; boundary=%s" % boundary},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            url = resp.read().decode("utf-8").strip()
+        if not url.startswith("http"):
+            raise ApiError(500, "No se pudo subir la foto.")
+        return url
+    except ApiError:
+        raise
+    except Exception as e:
+        raise ApiError(500, "No se pudo subir la foto. " + str(e)[:100])
+
+
+def h_subir_foto(params, body):
+    data_url = (body.get("dataUrl") or body.get("data_url") or "").strip()
+    if not data_url.startswith("data:image/"):
+        raise ApiError(400, "Imagen inválida.")
+    try:
+        header, b64 = data_url.split(",", 1)
+    except ValueError:
+        raise ApiError(400, "Imagen inválida.")
+    import base64
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        raise ApiError(400, "No se pudo leer la imagen.")
+    if len(raw) > 1200000:
+        raise ApiError(400, "La foto es muy pesada. Elige una más pequeña.")
+    if len(raw) < 100:
+        raise ApiError(400, "Imagen vacía.")
+    url = _upload_foto_bytes(raw, "enlace-escolar.jpg")
+    return 200, {"url": url, "ok": True}
+
+
 ROUTES = [
+    ('POST', r'^/api/fotos$', h_subir_foto),
     ('GET', r'^/api/push/vapid-public-key$', h_push_vapid_public),
     ('POST', r'^/api/push/subscribe$', h_push_subscribe),
     ('POST', r'^/api/push/unsubscribe$', h_push_unsubscribe),
@@ -1179,6 +1264,7 @@ ROUTES = [
     ('POST', r'^/api/admin/borrar-usuario$', h_admin_borrar_usuario),
     ('GET', r'^/api/salud$', h_salud),
 ]
+
 COMPILED_ROUTES = [(m, re.compile(p), h) for (m, p, h) in ROUTES]
 
 
