@@ -1,5 +1,5 @@
 // Enlace Escolar SW + Push
-const CACHE_NAME = 'enlace-escolar-v20260814-autmsg';
+const CACHE_NAME = 'enlace-escolar-v20260814-archroles';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

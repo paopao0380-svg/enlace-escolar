@@ -107,6 +107,8 @@
   .msg-asignatura span{font-weight:500;color:var(--muted);}
   .msg-empty-sec{font-size:12px;color:var(--muted);padding:8px 0 4px;}
   .msg-foto-wrap{margin:8px 0 6px;}
+  .msg-archivo{display:flex;align-items:center;gap:8px;margin:8px 0 4px;padding:10px 12px;background:#f0f6ff;border:1px solid #cfe0f5;border-radius:10px;text-decoration:none;color:var(--ink);font-size:13px;font-weight:600;}
+  .archivo-preview{font-size:13px;color:var(--muted);margin:6px 0;padding:8px 10px;background:#f8fafc;border-radius:8px;border:1px solid var(--line);}
   .btn-responder{margin-top:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--primary,#1d4ed8);}
   .btn-responder:active{transform:scale(0.98);}
   .msg-foto{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:12px;background:#e8eef5;cursor:pointer;border:1px solid var(--line);}
@@ -742,13 +744,16 @@
     <label>Mensaje</label>
     <textarea id="mensajeTexto" placeholder="Escribe el mensaje o adjunta una foto..."></textarea>
     <div class="foto-actions">
-      <button type="button" class="foto-btn" onclick="document.getElementById('mensajeFotoInput').click()">📷 Foto / Cámara</button>
+      <button type="button" class="foto-btn" onclick="document.getElementById('mensajeFotoInput').click()">📷 Foto</button>
+      <button type="button" class="foto-btn" id="btnMensajeArchivo" onclick="document.getElementById('mensajeArchivoInput').click()">📎 Archivo</button>
       <input type="file" id="mensajeFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onMensajeFotoSeleccionada(event)">
+      <input type="file" id="mensajeArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf" style="display:none" onchange="onMensajeArchivoSeleccionado(event)">
     </div>
     <div class="foto-preview-wrap" id="mensajeFotoPreviewWrap">
       <img class="foto-preview" id="mensajeFotoPreview" alt="Vista previa">
       <button type="button" class="foto-quitar" onclick="quitarMensajeFoto()">Quitar</button>
     </div>
+    <div class="archivo-preview" id="mensajeArchivoPreview" style="display:none;"></div>
     <div class="sheet-actions">
       <button class="btn" style="flex:1" onclick="closeOv('ovMensaje')">Cancelar</button>
       <button class="btn btn-primary" style="flex:1" onclick="enviarMensaje()">Enviar</button>
@@ -1723,13 +1728,16 @@ async function renderInicioAutoridad(screen) {
       <label>Mensaje</label>
       <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje o adjunta una foto..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;font-size:16px;"></textarea>
       <div class="foto-actions">
-        <button type="button" class="foto-btn" onclick="document.getElementById('instFotoInput').click()">📷 Foto / Cámara</button>
+        <button type="button" class="foto-btn" onclick="document.getElementById('instFotoInput').click()">📷 Foto</button>
+        <button type="button" class="foto-btn" onclick="document.getElementById('instArchivoInput').click()">📎 Archivo</button>
         <input type="file" id="instFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onInstFotoSeleccionada(event)">
+        <input type="file" id="instArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf" style="display:none" onchange="onInstArchivoSeleccionado(event)">
       </div>
       <div class="foto-preview-wrap" id="instFotoPreviewWrap">
         <img class="foto-preview" id="instFotoPreview" alt="Vista previa">
         <button type="button" class="foto-quitar" onclick="quitarInstFoto()">Quitar</button>
       </div>
+      <div class="archivo-preview" id="instArchivoPreview" style="display:none;"></div>
       <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="enviarMensajeInstitucional()">Enviar mensaje</button>
     </div>`;
 
@@ -1874,7 +1882,7 @@ async function enviarMensajeInstitucional() {
   let destinoId = destinoInstId;
   const sel = document.getElementById('selDestinoId');
   if (sel) destinoId = sel.value || null;
-  if (!texto && !instFotoDataUrl) { showToast('Escribe un mensaje o adjunta una foto.'); return; }
+  if (!texto && !instFotoDataUrl && !instArchivoData) { showToast('Escribe un mensaje o adjunta foto/archivo.'); return; }
   if ((destinoInstTipo === 'tutor' || destinoInstTipo === 'docente') && !destinoId) {
     showToast('Selecciona el destinatario.'); return;
   }
@@ -1886,17 +1894,27 @@ async function enviarMensajeInstitucional() {
       fotoUrl = (rFoto && rFoto.url) || '';
       if (!fotoUrl) { showToast('No se pudo subir la foto.'); return; }
     }
+    let archivoMeta = null;
+    if (instArchivoData) {
+      showToast('Subiendo archivo…');
+      archivoMeta = await subirArchivoMensaje(instArchivoData);
+      if (!archivoMeta) { showToast('No se pudo subir el archivo.'); return; }
+    }
     await api('POST', '/api/autoridades/mensajes', {
       remitenteId: me.id,
       destinoTipo: destinoInstTipo,
       destinoId: destinoId,
       tipo: window._tipoInst || 'info',
-      texto: texto || (fotoUrl ? '(Foto)' : ''),
+      texto: texto || (fotoUrl ? '(Foto)' : (archivoMeta ? '(Archivo)' : '')),
       fotoUrl: fotoUrl || undefined,
+      archivoUrl: archivoMeta ? archivoMeta.url : undefined,
+      archivoNombre: archivoMeta ? archivoMeta.nombre : undefined,
+      archivoTipo: archivoMeta ? archivoMeta.tipo : undefined,
     });
     showToast('Mensaje enviado correctamente.');
     window._borradorInst = '';
     quitarInstFoto();
+    try { quitarInstArchivo(); } catch (e) {}
     window._lockRender = false;
     currentTab = 'mensajes';
     render();
@@ -1944,6 +1962,7 @@ async function renderMensajesAutoridad(screen) {
           <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
           <div class="msg-stu">${escapeHtml(nombre || chip)}</div>
           ${fotoHtmlDe(m)}
+          ${htmlAdjuntoArchivo(m)}
           ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
           <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
           <button type="button" class="btn-responder" onclick="responderMensaje('${rid}','${rrol}','${rnom}','')">↩ Responder</button>
@@ -1970,6 +1989,7 @@ async function renderMensajesAutoridad(screen) {
           <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
           ${tituloHtml}
           ${fotoHtmlDe(m)}
+          ${htmlAdjuntoArchivo(m)}
           ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
           <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
         </div>`;
@@ -2590,10 +2610,12 @@ function renderMensajes(screen, lista, mensajesInst) {
       const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
       cuerpo += `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto adjunta" loading="lazy" onclick="verFotoGrande(this.src)" onerror="this.parentNode.innerHTML=\'<span class=\\\'stu-meta\\\'>No se pudo cargar la foto</span>\'"></div>`;
     }
-    if ((m.texto || '') && (m.texto || '') !== '(Foto)') {
-      cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
-    } else if (!foto) {
-      cuerpo += `<div class="msg-text">${escapeHtml(m.texto || '')}</div>`;
+    try { cuerpo += htmlAdjuntoArchivo(m); } catch (e) {}
+    const txt = (m.texto || '');
+    if (txt && txt !== '(Foto)' && txt !== '(Archivo)') {
+      cuerpo += `<div class="msg-text">${escapeHtml(txt)}</div>`;
+    } else if (!foto && !(m.archivoUrl || m.archivo_url)) {
+      cuerpo += `<div class="msg-text">${escapeHtml(txt)}</div>`;
     }
     const chips = [];
     if (opts.chip) chips.push(opts.chip);
@@ -2972,6 +2994,7 @@ async function abrirMensajeTutor() {
   const btn = document.querySelector('#tipoBar button[data-tipo="info"]');
   if (btn) btn.classList.add('sel-info');
   document.getElementById('ovMensaje').classList.remove('hidden');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 
 
@@ -2998,6 +3021,7 @@ function abrirMensajeAlTutorDesdeRep(estudianteId, tutorNombre) {
     if ((l.textContent || '').includes('Tipo')) l.style.display = 'none';
   });
   document.getElementById('ovMensaje').classList.remove('hidden');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 
 async function abrirMensaje(estudianteId) {
@@ -3017,6 +3041,7 @@ async function abrirMensaje(estudianteId) {
   try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('alert');
   document.getElementById('ovMensaje').classList.remove('hidden');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 function seleccionarTipo(t) {
   mensajeTipo = t;
@@ -3050,6 +3075,7 @@ async function abrirMensajeTodosDocentes() {
   try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('info');
   document.getElementById('ovMensaje').classList.remove('hidden');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 
 async function abrirListaDocentesTutor() {
@@ -3113,12 +3139,13 @@ function abrirMensajeADocente(docenteId, nombre) {
   const ov = document.getElementById('ovMensaje');
   if (ov) ov.classList.remove('hidden');
   else showToast('No se pudo abrir el formulario de mensaje.');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 
 async function enviarMensaje() {
   const texto = document.getElementById('mensajeTexto').value.trim();
-  if (!texto && !mensajeFotoDataUrl) {
-    showToast('Escribe un mensaje o adjunta una foto.');
+  if (!texto && !mensajeFotoDataUrl && !mensajeArchivoData) {
+    showToast('Escribe un mensaje o adjunta foto/archivo.');
     return;
   }
   try {
@@ -3131,7 +3158,23 @@ async function enviarMensaje() {
         return;
       }
     }
-    const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
+    let archivoMeta = null;
+    if (mensajeArchivoData) {
+      if (!puedeEnviarArchivos()) {
+        showToast('Solo Tutor, Docente o Autoridad pueden enviar archivos.');
+        return;
+      }
+      showToast('Subiendo archivo…');
+      archivoMeta = await subirArchivoMensaje(mensajeArchivoData);
+      if (!archivoMeta) { showToast('No se pudo subir el archivo.'); return; }
+    }
+    const textoFinal = texto || (fotoUrl ? '(Foto)' : (archivoMeta ? '(Archivo)' : ''));
+    const adj = {
+      fotoUrl: fotoUrl || undefined,
+      archivoUrl: archivoMeta ? archivoMeta.url : undefined,
+      archivoNombre: archivoMeta ? archivoMeta.nombre : undefined,
+      archivoTipo: archivoMeta ? archivoMeta.tipo : undefined,
+    };
     if (window._replyAutoridadId) {
       await api('POST', '/api/autoridades/mensajes', {
         remitenteId: me.id,
@@ -3139,11 +3182,12 @@ async function enviarMensaje() {
         destinoId: window._replyAutoridadId,
         tipo: mensajeTipo || 'info',
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       window._replyAutoridadId = null;
       window._replyAutoridadNombre = null;
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast('Respuesta enviada a la Autoridad.');
       render();
@@ -3154,10 +3198,11 @@ async function enviarMensaje() {
         tutorId: me.id,
         tipo: mensajeTipo,
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       mensajeTodosDocentes = false;
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast('Mensaje enviado a ' + (r.enviados || 0) + ' docente(s).');
       render();
@@ -3169,10 +3214,11 @@ async function enviarMensaje() {
         docenteId: mensajeDocenteId,
         tipo: mensajeTipo,
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       mensajeDocenteId = null;
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast('Mensaje enviado al Docente.');
       render();
@@ -3188,10 +3234,11 @@ async function enviarMensaje() {
         cursoId: activa.cursoId,
         tipo: mensajeTipo,
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       mensajeModoTutor = false;
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast('Mensaje enviado al Tutor y a los Representantes del curso.');
     } else if (mensajeEstudianteId === '__TODOS__') {
@@ -3199,9 +3246,10 @@ async function enviarMensaje() {
         remitenteId: me.id,
         tipo: mensajeTipo,
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast('Mensaje enviado a ' + r.enviados + ' representante(s).');
     } else {
@@ -3211,9 +3259,10 @@ async function enviarMensaje() {
         remitenteRol: me.rol,
         tipo: mensajeTipo,
         texto: textoFinal,
-        fotoUrl: fotoUrl || undefined,
+        ...adj,
       });
       quitarMensajeFoto();
+      try { quitarMensajeArchivo(); } catch (e) {}
       closeOv('ovMensaje');
       showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : me.rol === 'docente' ? 'Mensaje enviado al Tutor y al Representante.' : 'Mensaje entregado al tutor y al representante.');
     }
@@ -3234,6 +3283,7 @@ function abrirMensajeTodos() {
   try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('alert');
   document.getElementById('ovMensaje').classList.remove('hidden');
+  try { actualizarBotonArchivoMensaje(); } catch (e) {}
 }
 
 // ===================== vincular representante adicional =====================
@@ -3297,6 +3347,101 @@ function marcarPushActivo() {
 /** silent=true: no muestra toasts ni pide permiso si está en default (espera botón). */
 
 /* ===== Fotos en mensajes (almacenamiento externo; Turso solo URL) ===== */
+
+let mensajeArchivoData = null;
+let instArchivoData = null;
+
+function puedeEnviarArchivos() {
+  return me && (me.rol === 'tutor' || me.rol === 'docente' || me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece');
+}
+function actualizarBotonArchivoMensaje() {
+  const btn = document.getElementById('btnMensajeArchivo');
+  const inp = document.getElementById('mensajeArchivoInput');
+  const prev = document.getElementById('mensajeArchivoPreview');
+  const ok = puedeEnviarArchivos();
+  if (btn) btn.style.display = ok ? '' : 'none';
+  if (inp) inp.style.display = 'none';
+  if (!ok) {
+    try { quitarMensajeArchivo(); } catch (e) {}
+    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+  }
+}
+
+function quitarMensajeArchivo() {
+  mensajeArchivoData = null;
+  const inp = document.getElementById('mensajeArchivoInput');
+  if (inp) inp.value = '';
+  const prev = document.getElementById('mensajeArchivoPreview');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+}
+function quitarInstArchivo() {
+  instArchivoData = null;
+  const inp = document.getElementById('instArchivoInput');
+  if (inp) inp.value = '';
+  const prev = document.getElementById('instArchivoPreview');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+}
+function leerArchivoComoDataUrl(file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function() { resolve(reader.result); };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function onMensajeArchivoSeleccionado(ev) {
+  if (!puedeEnviarArchivos()) {
+    showToast('Solo Tutor, Docente o Autoridad pueden enviar archivos.');
+    try { quitarMensajeArchivo(); } catch (e) {}
+    return;
+  }
+  const file = ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const nombre = file.name || 'archivo.pdf';
+  const ext = (nombre.split('.').pop() || '').toLowerCase();
+  if (['pdf','doc','docx','xls','xlsx'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel.'); return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('El archivo supera 8 MB.'); return; }
+  try {
+    showToast('Preparando archivo…');
+    mensajeArchivoData = { dataUrl: await leerArchivoComoDataUrl(file), nombre: nombre, mime: file.type || '' };
+    const prev = document.getElementById('mensajeArchivoPreview');
+    if (prev) {
+      prev.style.display = 'block';
+      prev.innerHTML = '📎 ' + escapeHtml(nombre) + ' <button type="button" class="foto-quitar" style="position:static;margin-left:8px;" onclick="quitarMensajeArchivo()">Quitar</button>';
+    }
+  } catch (e) { showToast('No se pudo leer el archivo.'); quitarMensajeArchivo(); }
+}
+async function onInstArchivoSeleccionado(ev) {
+  const file = ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const nombre = file.name || 'archivo.pdf';
+  const ext = (nombre.split('.').pop() || '').toLowerCase();
+  if (['pdf','doc','docx','xls','xlsx'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel.'); return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('El archivo supera 8 MB.'); return; }
+  try {
+    showToast('Preparando archivo…');
+    instArchivoData = { dataUrl: await leerArchivoComoDataUrl(file), nombre: nombre, mime: file.type || '' };
+    const prev = document.getElementById('instArchivoPreview');
+    if (prev) {
+      prev.style.display = 'block';
+      prev.innerHTML = '📎 ' + escapeHtml(nombre) + ' <button type="button" class="foto-quitar" style="position:static;margin-left:8px;" onclick="quitarInstArchivo()">Quitar</button>';
+    }
+  } catch (e) { showToast('No se pudo leer el archivo.'); quitarInstArchivo(); }
+}
+async function subirArchivoMensaje(data) {
+  if (!data || !data.dataUrl) return null;
+  const r = await api('POST', '/api/archivos', { dataUrl: data.dataUrl, nombre: data.nombre, mime: data.mime });
+  if (!r || !r.url) return null;
+  return { url: r.url, nombre: r.nombre || data.nombre, tipo: r.tipo || '' };
+}
+function htmlAdjuntoArchivo(m) {
+  const url = String(m.archivoUrl || m.archivo_url || '').trim();
+  const nombre = String(m.archivoNombre || m.archivo_nombre || 'Archivo').trim();
+  if (!url || url.indexOf('http') !== 0) return '';
+  const safeUrl = String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  return '<a class="msg-archivo" href="' + safeUrl + '" target="_blank" rel="noopener">📎 ' + escapeHtml(nombre) + '</a>';
+}
+
 let mensajeFotoDataUrl = null;
 
 function quitarMensajeFoto() {
