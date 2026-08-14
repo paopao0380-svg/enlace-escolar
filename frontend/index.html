@@ -2499,7 +2499,22 @@ function renderMensajes(screen, lista, mensajesInst) {
     }
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
+    // Mensajes a representantes (lista principal remitente docente)
+    const envRep = (lista || []).filter(m => (m.remitenteRol || '').toLowerCase() === 'docente' && m.remitenteId === me.id).sort(byFechaDesc);
+    // Unificar enviados: institucionales al tutor + mensajes a estudiantes/reps (sin duplicar por texto+fecha simple)
+    const enviadosUnificados = [];
+    const seen = new Set();
+    function addEnv(m, chip) {
+      const k = String(m.id || '') + '|' + String(m.fecha || '') + '|' + String(m.texto || '').slice(0, 40);
+      if (seen.has(k)) return;
+      seen.add(k);
+      enviadosUnificados.push({ m: m, chip: chip });
+    }
+    envRep.forEach(m => addEnv(m, 'Tutor y Representante'));
+    enviadosTutor.forEach(m => addEnv(m, 'Tutor y Representante'));
+    enviadosUnificados.sort((a, b) => String((b.m && b.m.fecha) || '').localeCompare(String((a.m && a.m.fecha) || '')));
     window._enviadosTutorCache = enviadosTutor;
+    window._docenteEnviadosUnificados = enviadosUnificados;
     if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'recibidos';
     if (msgMainTab === 'recibidos') {
       tabs = [
@@ -2508,11 +2523,11 @@ function renderMensajes(screen, lista, mensajesInst) {
       ];
       if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
     } else {
+      // Enviados: una sola casilla (el mismo mensaje llega a Tutor y Representante)
       tabs = [
-        { id: 'tutor', label: 'Al Tutor', unread: 0 },
-        { id: 'representantes', label: 'Representantes', unread: 0 },
+        { id: 'env_todos', label: 'Enviados', unread: 0 },
       ];
-      if (msgSubTab !== 'tutor' && msgSubTab !== 'representantes') msgSubTab = 'tutor';
+      msgSubTab = 'env_todos';
     }
   } else if (me.rol === 'representante') {
     const recibidos = lista.filter(m => m.remitenteId !== me.id).sort(byFechaDesc);
@@ -2543,9 +2558,15 @@ function renderMensajes(screen, lista, mensajesInst) {
       `<button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="cambiarMsgMainTab('enviados')">Enviados</button>` +
       `</div>`;
   }
-  const tabsHtml = mainTabsHtml + `<div class="msg-tabs">` + tabs.map(t =>
-    `<button type="button" class="msg-tab ${t.id === msgSubTab ? 'active' : ''}" onclick="cambiarMsgSubTab('${t.id}')">${t.label}${badge(t.unread)}</button>`
-  ).join('') + `</div>`;
+  let subTabsHtml = '';
+  if (!(me.rol === 'docente' && msgMainTab === 'enviados')) {
+    subTabsHtml = `<div class="msg-tabs">` + tabs.map(t =>
+      `<button type="button" class="msg-tab ${t.id === msgSubTab ? 'active' : ''}" onclick="cambiarMsgSubTab('${t.id}')">${t.label}${badge(t.unread)}</button>`
+    ).join('') + `</div>`;
+  } else {
+    subTabsHtml = `<div class="stu-meta" style="margin:0 0 10px;">Cada mensaje enviado llega al <b>Tutor</b> y al <b>Representante</b>.</div>`;
+  }
+  const tabsHtml = mainTabsHtml + subTabsHtml;
 
   // Panel activo
   let panel = '';
@@ -2584,15 +2605,26 @@ function renderMensajes(screen, lista, mensajesInst) {
           ocultarRemitente: true,
         })).join('')
       : '<div class="msg-empty-sec">Aún no has enviado mensajes a representantes.</div>';
-  } else if (msgSubTab === 'tutor' && me.rol === 'docente') {
-    const env = window._enviadosTutorCache || [];
+  } else if (msgSubTab === 'env_todos' && me.rol === 'docente') {
+    const env = window._docenteEnviadosUnificados || [];
     panel = env.length
-      ? env.map(m => cardMsg(m, { paraNombre: m.destinoNombre || 'Tutor', chip: 'Docente → Tutor', mostrarEstudiante: false, ocultarRemitente: true, forzarAsignatura: true })).join('')
-      : '<div class="msg-empty-sec">Aún no has enviado mensajes al tutor.</div>';
+      ? env.map(item => cardMsg(item.m, {
+          chip: item.chip || 'Tutor y Representante',
+          ocultarRemitente: true,
+          forzarAsignatura: true,
+        })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes.<br>Al enviar, el mismo mensaje llega al Tutor y al Representante.</div>';
+  } else if (msgSubTab === 'tutor' && me.rol === 'docente') {
+    // compatibilidad
+    const env = window._docenteEnviadosUnificados || [];
+    panel = env.length
+      ? env.map(item => cardMsg(item.m, { chip: 'Tutor y Representante', ocultarRemitente: true })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes.</div>';
   } else if (msgSubTab === 'representantes' && me.rol === 'docente') {
-    panel = deDocente.length
-      ? deDocente.map(m => cardMsg(m, { chip: 'A representante', ocultarRemitente: true })).join('')
-      : '<div class="msg-empty-sec">Aún no has enviado mensajes a representantes.</div>';
+    const env = window._docenteEnviadosUnificados || [];
+    panel = env.length
+      ? env.map(item => cardMsg(item.m, { chip: 'Tutor y Representante', ocultarRemitente: true })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes.</div>';
   } else if (msgSubTab === 'recibidos') {
     const rec = window._repRecibidos || [];
     panel = rec.length ? rec.map(m => cardMsg(m)).join('') : '<div class="msg-empty-sec">No hay mensajes recibidos.</div>';
@@ -2612,7 +2644,7 @@ function renderMensajes(screen, lista, mensajesInst) {
 function cambiarMsgMainTab(id) {
   msgMainTab = id;
   if (me && me.rol === 'docente') {
-    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'tutor';
+    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_todos';
   } else if (me && me.rol === 'tutor') {
     msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_docentes';
   } else {
