@@ -107,6 +107,8 @@
   .msg-asignatura span{font-weight:500;color:var(--muted);}
   .msg-empty-sec{font-size:12px;color:var(--muted);padding:8px 0 4px;}
   .msg-foto-wrap{margin:8px 0 6px;}
+  .btn-responder{margin-top:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--primary,#1d4ed8);}
+  .btn-responder:active{transform:scale(0.98);}
   .msg-foto{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:12px;background:#e8eef5;cursor:pointer;border:1px solid var(--line);}
 
   .foto-actions{display:flex;gap:8px;align-items:center;margin:8px 0;}
@@ -1776,6 +1778,97 @@ async function onInstFotoSeleccionada(ev) {
   }
 }
 
+
+async function responderMensaje(remitenteId, remitenteRol, remitenteNombre, estudianteId) {
+  if (!me || !remitenteId) return;
+  const rolDest = (remitenteRol || '').toLowerCase();
+  const nombre = remitenteNombre || rolDest || 'usuario';
+  estudianteId = estudianteId || null;
+
+  // Autoridad responde a tutor/docente
+  if (me.rol === 'rector' || me.rol === 'inspector' || me.rol === 'dece') {
+    if (rolDest === 'tutor' || rolDest === 'docente') {
+      destinoInstTipo = rolDest;
+      destinoInstId = remitenteId;
+      window._tipoInst = 'info';
+      window._borradorInst = '';
+      currentTab = 'inicio';
+      await render();
+      showToast('Respuesta para: ' + nombre + '. Escribe y envía el comunicado.');
+      const ta = document.getElementById('textoInst');
+      if (ta) {
+        ta.focus();
+        ta.placeholder = 'Respuesta para ' + nombre + '...';
+      }
+      return;
+    }
+    showToast('Solo puedes responder a Tutores o Docentes.');
+    return;
+  }
+
+  // Tutor / Docente responden a autoridad
+  if ((me.rol === 'tutor' || me.rol === 'docente') && ['rector','inspector','dece'].includes(rolDest)) {
+    mensajeModoTutor = false;
+    mensajeDocenteId = null;
+    mensajeTodosDocentes = false;
+    mensajeEstudianteId = null;
+    window._replyAutoridadId = remitenteId;
+    window._replyAutoridadNombre = nombre;
+    mensajeTipo = 'info';
+    try { restaurarTipoMensajeUI(); } catch (e) {}
+    document.getElementById('mensajeDestino').textContent = 'Respuesta a ' + nombre + ' (' + (rolDest) + ')';
+    document.getElementById('mensajeTexto').value = '';
+    try { quitarMensajeFoto(); } catch (e) {}
+    seleccionarTipo('info');
+    document.getElementById('ovMensaje').classList.remove('hidden');
+    return;
+  }
+
+  // Tutor responde a docente
+  if (me.rol === 'tutor' && rolDest === 'docente') {
+    abrirMensajeADocente(remitenteId, nombre);
+    return;
+  }
+
+  // Docente responde a tutor (mensaje al tutor del curso)
+  if (me.rol === 'docente' && rolDest === 'tutor') {
+    if (!docenteCursoActivo) {
+      showToast('Selecciona un curso primero para responder al Tutor.');
+      return;
+    }
+    abrirMensajeTutor();
+    document.getElementById('mensajeDestino').textContent = 'Respuesta al Tutor: ' + nombre;
+    return;
+  }
+
+  // Representante responde a tutor o docente → mensaje al tutor (flujo actual)
+  if (me.rol === 'representante') {
+    if (estudianteId) {
+      abrirMensajeAlTutorDesdeRep(estudianteId, nombre);
+      document.getElementById('mensajeDestino').textContent = 'Respuesta sobre el estudiante';
+      return;
+    }
+    showToast('No se pudo determinar el estudiante para responder.');
+    return;
+  }
+
+  // Tutor responde a representante (sobre estudiante)
+  if (me.rol === 'tutor' && rolDest === 'representante' && estudianteId) {
+    abrirMensaje(estudianteId);
+    document.getElementById('mensajeDestino').textContent = 'Respuesta al Representante: ' + nombre;
+    return;
+  }
+
+  // Docente responde a representante
+  if (me.rol === 'docente' && rolDest === 'representante' && estudianteId) {
+    abrirMensaje(estudianteId);
+    document.getElementById('mensajeDestino').textContent = 'Respuesta (Tutor y Representante): ' + nombre;
+    return;
+  }
+
+  showToast('No se puede responder este mensaje desde aquí.');
+}
+
 async function enviarMensajeInstitucional() {
   const texto = (document.getElementById('textoInst').value || '').trim();
   let destinoId = destinoInstId;
@@ -1811,44 +1904,79 @@ async function enviarMensajeInstitucional() {
 }
 
 async function renderMensajesAutoridad(screen) {
-  let lista = [];
+  if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'enviados';
+  let enviados = [];
+  let recibidos = [];
   try {
-    lista = (await api('GET', '/api/autoridades/' + me.id + '/mensajes')).mensajes || [];
+    enviados = (await api('GET', '/api/autoridades/' + me.id + '/mensajes')).mensajes || [];
   } catch (e) { showToast(e.message); }
-  if (!lista.length) {
-    screen.innerHTML = '<div class="section-title">Enviados</div><div class="empty">Aún no has enviado comunicados.</div>';
-    return;
-  }
-  screen.innerHTML = '<div class="section-title">Enviados</div>' + lista.map(m => {
-    const tipoTxt = tipoLabel(m.tipo || 'info');
-    const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
-    const chip = m.destinoTipo === 'tutor' ? 'Tutor'
-      : m.destinoTipo === 'docente' ? 'Docente'
-      : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
-      : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
-      : 'Destino';
-    const tituloHtml = esEspecifico
-      ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
-      : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
+  try {
+    recibidos = (await api('GET', '/api/usuarios/' + me.id + '/mensajes-institucionales')).mensajes || [];
+  } catch (e) {}
+
+  const mainTabs = `<div class="msg-tabs msg-tabs-main">
+      <button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="msgMainTab='recibidos';renderMensajesAutoridad(document.getElementById('screen'))">Recibidos${recibidos.length ? '' : ''}</button>
+      <button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="msgMainTab='enviados';renderMensajesAutoridad(document.getElementById('screen'))">Enviados</button>
+    </div>`;
+
+  function fotoHtmlDe(m) {
     const foto = String(m.fotoUrl || m.foto_url || '').trim();
-    let fotoHtml = '';
-    if (foto && (foto.indexOf('http') === 0 || foto.indexOf('data:image') === 0)) {
-      const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-      fotoHtml = `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)"></div>`;
+    if (!(foto && (foto.indexOf('http') === 0 || foto.indexOf('data:image') === 0))) return '';
+    const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)"></div>`;
+  }
+
+  let panel = '';
+  if (msgMainTab === 'recibidos') {
+    if (!recibidos.length) {
+      panel = '<div class="empty">No hay mensajes recibidos de Tutores o Docentes.</div>';
+    } else {
+      panel = recibidos.map(m => {
+        const tipoTxt = tipoLabel(m.tipo || 'info');
+        const rolR = (m.remitenteRol || '').toLowerCase();
+        const chip = rolR === 'tutor' ? 'Tutor' : rolR === 'docente' ? 'Docente' : (m.remitenteRol || 'Remitente');
+        const nombre = (m.remitenteNombre || '').toUpperCase();
+        const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
+        const rid = String(m.remitenteId || '').replace(/'/g, '');
+        const rrol = String(m.remitenteRol || '').replace(/'/g, '');
+        const rnom = String(m.remitenteNombre || '').replace(/\\/g,'\\').replace(/'/g, "\\'");
+        return `<div class="msg-card tipo-${m.tipo||'info'}">
+          <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
+          <div class="msg-stu">${escapeHtml(nombre || chip)}</div>
+          ${fotoHtmlDe(m)}
+          ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
+          <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
+          <button type="button" class="btn-responder" onclick="responderMensaje('${rid}','${rrol}','${rnom}','')">↩ Responder</button>
+        </div>`;
+      }).join('');
     }
-    const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
-    return `
-      <div class="msg-card tipo-${m.tipo||'info'}">
-        <div class="msg-head">
-          <span class="msg-tipo">${tipoTxt}</span>
-          <span class="msg-date">${fmtFecha(m.fecha)}</span>
-        </div>
-        ${tituloHtml}
-        ${fotoHtml}
-        ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
-        <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
-      </div>`;
-  }).join('');
+  } else {
+    if (!enviados.length) {
+      panel = '<div class="empty">Aún no has enviado comunicados.</div>';
+    } else {
+      panel = enviados.map(m => {
+        const tipoTxt = tipoLabel(m.tipo || 'info');
+        const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
+        const chip = m.destinoTipo === 'tutor' ? 'Tutor'
+          : m.destinoTipo === 'docente' ? 'Docente'
+          : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
+          : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
+          : 'Destino';
+        const tituloHtml = esEspecifico
+          ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
+          : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
+        const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
+        return `<div class="msg-card tipo-${m.tipo||'info'}">
+          <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
+          ${tituloHtml}
+          ${fotoHtmlDe(m)}
+          ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
+          <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
+        </div>`;
+      }).join('');
+    }
+  }
+  screen.innerHTML = mainTabs + panel;
 }
 
 
@@ -2472,6 +2600,14 @@ function renderMensajes(screen, lista, mensajesInst) {
     else if (m.remitenteRol) chips.push(rolLabel(m.remitenteRol));
     if (me.rol === 'tutor') chips.push(m.confirmadoTutor ? '✓ Leído' : 'Sin leer');
     if (me.rol === 'representante' && !esMio) chips.push(m.confirmadoRepresentante ? '✓ Leído' : 'Sin leer');
+    let btnResp = '';
+    if (!esMio && m.remitenteId && !opts.sinResponder) {
+      const rid = String(m.remitenteId).replace(/'/g, '');
+      const rrol = String(m.remitenteRol || '').replace(/'/g, '');
+      const rnom = String(m.remitenteNombre || '').replace(/\\/g,'\\').replace(/'/g, "\\'");
+      const eid = String(m.estudianteId || '').replace(/'/g, '');
+      btnResp = `<button type="button" class="btn-responder" onclick="event.stopPropagation();responderMensaje('${rid}','${rrol}','${rnom}','${eid}')">↩ Responder</button>`;
+    }
     return `
       <div class="msg-card tipo-${m.tipo||'info'}${sinLeer && !esMio ? ' msg-unread' : ''}" data-mid="${m.id || ''}">
         <div class="msg-head">
@@ -2480,6 +2616,7 @@ function renderMensajes(screen, lista, mensajesInst) {
         </div>
         ${cuerpo}
         <div class="msg-chain">${chips.map(c => `<span class="chip">${escapeHtml(c)}</span>`).join('')}</div>
+        ${btnResp}
       </div>`;
   }
 
@@ -2867,6 +3004,7 @@ async function abrirMensaje(estudianteId) {
   mensajeModoTutor = false;
   mensajeDocenteId = null;
   mensajeTodosDocentes = false;
+  window._replyAutoridadId = null;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = estudianteId;
   mensajeTipo = 'alert';
@@ -2994,6 +3132,23 @@ async function enviarMensaje() {
       }
     }
     const textoFinal = texto || (fotoUrl ? '(Foto)' : '');
+    if (window._replyAutoridadId) {
+      await api('POST', '/api/autoridades/mensajes', {
+        remitenteId: me.id,
+        destinoTipo: 'autoridad',
+        destinoId: window._replyAutoridadId,
+        tipo: mensajeTipo || 'info',
+        texto: textoFinal,
+        fotoUrl: fotoUrl || undefined,
+      });
+      window._replyAutoridadId = null;
+      window._replyAutoridadNombre = null;
+      quitarMensajeFoto();
+      closeOv('ovMensaje');
+      showToast('Respuesta enviada a la Autoridad.');
+      render();
+      return;
+    }
     if (mensajeTodosDocentes) {
       const r = await api('POST', '/api/tutores/mensajes-docentes-todos', {
         tutorId: me.id,
@@ -3070,6 +3225,7 @@ function abrirMensajeTodos() {
   mensajeModoTutor = false;
   mensajeDocenteId = null;
   mensajeTodosDocentes = false;
+  window._replyAutoridadId = null;
   restaurarTipoMensajeUI();
   mensajeEstudianteId = '__TODOS__';
   mensajeTipo = 'alert';
