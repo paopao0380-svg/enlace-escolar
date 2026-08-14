@@ -3435,11 +3435,14 @@ async function subirArchivoMensaje(data) {
   return { url: r.url, nombre: r.nombre || data.nombre, tipo: r.tipo || '' };
 }
 function htmlAdjuntoArchivo(m) {
+  if (!m) return '';
   const url = String(m.archivoUrl || m.archivo_url || '').trim();
-  const nombre = String(m.archivoNombre || m.archivo_nombre || 'Archivo').trim();
-  if (!url || url.indexOf('http') !== 0) return '';
+  let nombre = String(m.archivoNombre || m.archivo_nombre || '').trim();
+  if (!nombre) nombre = 'Archivo adjunto';
+  if (!url) return '';
+  if (url.indexOf('http') !== 0 && url.indexOf('data:') !== 0) return '';
   const safeUrl = String(url).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-  return '<a class="msg-archivo" href="' + safeUrl + '" target="_blank" rel="noopener">📎 ' + escapeHtml(nombre) + '</a>';
+  return '<a class="msg-archivo" href="' + safeUrl + '" target="_blank" rel="noopener noreferrer">📎 ' + escapeHtml(nombre) + '</a>';
 }
 
 let mensajeFotoDataUrl = null;
