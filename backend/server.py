@@ -1606,8 +1606,15 @@ ALLOWED_ARCHIVO_MIME = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
     'application/vnd.ms-excel': 'xls',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    # Excel con macros
+    'application/vnd.ms-excel.sheet.macroenabled.12': 'xlsm',
+    'application/vnd.ms-excel.sheet.macroEnabled.12': 'xlsm',
+    'application/vnd.ms-excel.template.macroenabled.12': 'xltm',
+    'application/vnd.ms-excel.template.macroEnabled.12': 'xltm',
+    'application/vnd.ms-excel.sheet.binary.macroenabled.12': 'xlsb',
+    'application/vnd.ms-excel.sheet.binary.macroEnabled.12': 'xlsb',
 }
-ALLOWED_ARCHIVO_EXT = {'.pdf', '.doc', '.docx', '.xls', '.xlsx'}
+ALLOWED_ARCHIVO_EXT = {'.pdf', '.doc', '.docx', '.xls', '.xlsx', '.xlsm', '.xltm', '.xlsb'}
 
 
 def h_subir_archivo(params, body):
@@ -1638,7 +1645,7 @@ def h_subir_archivo(params, body):
         raise ApiError(400, 'Archivo vacío.')
     ext = _os.path.splitext(nombre)[1].lower()
     if mime not in ALLOWED_ARCHIVO_MIME and ext not in ALLOWED_ARCHIVO_EXT:
-        raise ApiError(400, 'Solo se permiten PDF, Word o Excel.')
+        raise ApiError(400, 'Solo se permiten PDF, Word o Excel (incluido Excel con macros .xlsm).')
     tipo = ALLOWED_ARCHIVO_MIME.get(mime) or ext.replace('.', '')
     safe_name = re.sub(r'[^a-zA-Z0-9._-]+', '_', nombre)[:80] or ('archivo.' + tipo)
     url = _upload_foto_bytes(raw, safe_name)
