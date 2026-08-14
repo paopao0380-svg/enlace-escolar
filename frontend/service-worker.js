@@ -1,5 +1,5 @@
 // Enlace Escolar SW + Push
-const CACHE_NAME = 'enlace-escolar-v20260814-tutorenv';
+const CACHE_NAME = 'enlace-escolar-v20260814-auttabs2';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

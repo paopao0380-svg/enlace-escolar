@@ -1922,7 +1922,9 @@ async function enviarMensajeInstitucional() {
 }
 
 async function renderMensajesAutoridad(screen) {
-  if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'enviados';
+  if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'recibidos';
+  if (msgSubTab !== 'aut_tutores' && msgSubTab !== 'aut_docentes') msgSubTab = 'aut_tutores';
+
   let enviados = [];
   let recibidos = [];
   try {
@@ -1932,9 +1934,29 @@ async function renderMensajesAutoridad(screen) {
     recibidos = (await api('GET', '/api/usuarios/' + me.id + '/mensajes-institucionales')).mensajes || [];
   } catch (e) {}
 
+  const byFecha = (a, b) => String(b.fecha || '').localeCompare(String(a.fecha || ''));
+  recibidos = recibidos.slice().sort(byFecha);
+  enviados = enviados.slice().sort(byFecha);
+
+  const recTut = recibidos.filter(m => (m.remitenteRol || '').toLowerCase() === 'tutor');
+  const recDoc = recibidos.filter(m => (m.remitenteRol || '').toLowerCase() === 'docente');
+  const envTut = enviados.filter(m => {
+    const t = (m.destinoTipo || '').toLowerCase();
+    return t === 'tutor' || t === 'todos_tutores';
+  });
+  const envDoc = enviados.filter(m => {
+    const t = (m.destinoTipo || '').toLowerCase();
+    return t === 'docente' || t === 'todos_docentes';
+  });
+
   const mainTabs = `<div class="msg-tabs msg-tabs-main">
-      <button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="msgMainTab='recibidos';renderMensajesAutoridad(document.getElementById('screen'))">Recibidos${recibidos.length ? '' : ''}</button>
-      <button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="msgMainTab='enviados';renderMensajesAutoridad(document.getElementById('screen'))">Enviados</button>
+      <button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="msgMainTab='recibidos';msgSubTab='aut_tutores';renderMensajesAutoridad(document.getElementById('screen'))">Recibidos</button>
+      <button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="msgMainTab='enviados';msgSubTab='aut_tutores';renderMensajesAutoridad(document.getElementById('screen'))">Enviados</button>
+    </div>`;
+
+  const subTabs = `<div class="msg-tabs">
+      <button type="button" class="msg-tab ${msgSubTab === 'aut_tutores' ? 'active' : ''}" onclick="msgSubTab='aut_tutores';renderMensajesAutoridad(document.getElementById('screen'))">Tutores</button>
+      <button type="button" class="msg-tab ${msgSubTab === 'aut_docentes' ? 'active' : ''}" onclick="msgSubTab='aut_docentes';renderMensajesAutoridad(document.getElementById('screen'))">Docentes</button>
     </div>`;
 
   function fotoHtmlDe(m) {
@@ -1944,59 +1966,78 @@ async function renderMensajesAutoridad(screen) {
     return `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)"></div>`;
   }
 
-  let panel = '';
+  function cardRecibido(m) {
+    const tipoTxt = tipoLabel(m.tipo || 'info');
+    const rolR = (m.remitenteRol || '').toLowerCase();
+    const chip = rolR === 'tutor' ? 'Tutor' : rolR === 'docente' ? 'Docente' : (m.remitenteRol || 'Remitente');
+    const nombre = (m.remitenteNombre || '').toUpperCase();
+    const textoShow = ((m.texto || '') === '(Foto)' || (m.texto || '') === '(Archivo)') ? '' : escapeHtml(m.texto || '');
+    const rid = String(m.remitenteId || '').replace(/'/g, '');
+    const rrol = String(m.remitenteRol || '').replace(/'/g, '');
+    const rnom = String(m.remitenteNombre || '').replace(/'/g, '');
+    return `<div class="msg-card tipo-${m.tipo||'info'}">
+      <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
+      <div class="msg-stu">${escapeHtml(nombre || chip)}</div>
+      ${fotoHtmlDe(m)}
+      ${htmlAdjuntoArchivo(m)}
+      ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
+      <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
+      <button type="button" class="btn-responder" onclick="responderMensaje('${rid}','${rrol}','${rnom}','')">↩ Responder</button>
+    </div>`;
+  }
+
+  function cardEnviado(m) {
+    const tipoTxt = tipoLabel(m.tipo || 'info');
+    const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
+    const chip = m.destinoTipo === 'tutor' ? 'Tutor'
+      : m.destinoTipo === 'docente' ? 'Docente'
+      : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
+      : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
+      : 'Destino';
+    const tituloHtml = esEspecifico
+      ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
+      : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
+    const textoShow = ((m.texto || '') === '(Foto)' || (m.texto || '') === '(Archivo)') ? '' : escapeHtml(m.texto || '');
+    return `<div class="msg-card tipo-${m.tipo||'info'}">
+      <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
+      ${tituloHtml}
+      ${fotoHtmlDe(m)}
+      ${htmlAdjuntoArchivo(m)}
+      ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
+      <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
+    </div>`;
+  }
+
+  let listaActiva = [];
+  let emptyMsg = '';
   if (msgMainTab === 'recibidos') {
-    if (!recibidos.length) {
-      panel = '<div class="empty">No hay mensajes recibidos de Tutores o Docentes.</div>';
+    if (msgSubTab === 'aut_docentes') {
+      listaActiva = recDoc;
+      emptyMsg = 'No hay mensajes recibidos de Docentes.';
     } else {
-      panel = recibidos.map(m => {
-        const tipoTxt = tipoLabel(m.tipo || 'info');
-        const rolR = (m.remitenteRol || '').toLowerCase();
-        const chip = rolR === 'tutor' ? 'Tutor' : rolR === 'docente' ? 'Docente' : (m.remitenteRol || 'Remitente');
-        const nombre = (m.remitenteNombre || '').toUpperCase();
-        const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
-        const rid = String(m.remitenteId || '').replace(/'/g, '');
-        const rrol = String(m.remitenteRol || '').replace(/'/g, '');
-        const rnom = String(m.remitenteNombre || '').replace(/\\/g,'\\').replace(/'/g, "\\'");
-        return `<div class="msg-card tipo-${m.tipo||'info'}">
-          <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
-          <div class="msg-stu">${escapeHtml(nombre || chip)}</div>
-          ${fotoHtmlDe(m)}
-          ${htmlAdjuntoArchivo(m)}
-          ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
-          <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
-          <button type="button" class="btn-responder" onclick="responderMensaje('${rid}','${rrol}','${rnom}','')">↩ Responder</button>
-        </div>`;
-      }).join('');
+      listaActiva = recTut;
+      emptyMsg = 'No hay mensajes recibidos de Tutores.';
     }
   } else {
-    if (!enviados.length) {
-      panel = '<div class="empty">Aún no has enviado comunicados.</div>';
+    if (msgSubTab === 'aut_docentes') {
+      listaActiva = envDoc;
+      emptyMsg = 'Aún no has enviado comunicados a Docentes.';
     } else {
-      panel = enviados.map(m => {
-        const tipoTxt = tipoLabel(m.tipo || 'info');
-        const esEspecifico = (m.destinoTipo === 'tutor' || m.destinoTipo === 'docente') && m.destinoNombre;
-        const chip = m.destinoTipo === 'tutor' ? 'Tutor'
-          : m.destinoTipo === 'docente' ? 'Docente'
-          : m.destinoTipo === 'todos_tutores' ? 'Todos los tutores'
-          : m.destinoTipo === 'todos_docentes' ? 'Todos los docentes'
-          : 'Destino';
-        const tituloHtml = esEspecifico
-          ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
-          : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
-        const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
-        return `<div class="msg-card tipo-${m.tipo||'info'}">
-          <div class="msg-head"><span class="msg-tipo">${tipoTxt}</span><span class="msg-date">${fmtFecha(m.fecha)}</span></div>
-          ${tituloHtml}
-          ${fotoHtmlDe(m)}
-          ${htmlAdjuntoArchivo(m)}
-          ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
-          <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
-        </div>`;
-      }).join('');
+      listaActiva = envTut;
+      emptyMsg = 'Aún no has enviado comunicados a Tutores.';
     }
   }
-  screen.innerHTML = mainTabs + panel;
+
+  let panel = '';
+  if (!listaActiva.length) {
+    panel = `<div class="msg-empty-sec">${emptyMsg}</div>`;
+  } else if (msgMainTab === 'recibidos') {
+    panel = listaActiva.map(cardRecibido).join('');
+  } else {
+    panel = listaActiva.map(cardEnviado).join('');
+  }
+
+  screen.innerHTML = mainTabs + subTabs + panel;
 }
 
 
