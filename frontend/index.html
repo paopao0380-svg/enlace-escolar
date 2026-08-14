@@ -2704,15 +2704,23 @@ function renderMensajes(screen, lista, mensajesInst) {
       ];
       if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
     } else {
-      const envDoc = enviadosT.filter(m => m.destinoTipo === 'docente');
-      const envRep = enviadosT.filter(m => m.destinoTipo === 'representante');
+      const envAuth = enviadosT.filter(m => {
+        const t = (m.destinoTipo || '').toLowerCase();
+        return t === 'autoridad' || t === 'todos_autoridades' || t === 'rector' || t === 'inspector' || t === 'dece';
+      });
+      const envDoc = enviadosT.filter(m => (m.destinoTipo || '').toLowerCase() === 'docente');
+      const envRep = enviadosT.filter(m => (m.destinoTipo || '').toLowerCase() === 'representante');
       tabs = [
+        { id: 'env_autoridades', label: 'Autoridades', unread: 0 },
         { id: 'env_docentes', label: 'Docentes', unread: 0 },
         { id: 'env_representantes', label: 'Representantes', unread: 0 },
       ];
+      window._tutorEnvAuth = envAuth;
       window._tutorEnvDoc = envDoc;
       window._tutorEnvRep = envRep;
-      if (msgSubTab !== 'env_docentes' && msgSubTab !== 'env_representantes') msgSubTab = 'env_docentes';
+      if (msgSubTab !== 'env_autoridades' && msgSubTab !== 'env_docentes' && msgSubTab !== 'env_representantes') {
+        msgSubTab = 'env_autoridades';
+      }
     }
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
@@ -2805,6 +2813,16 @@ function renderMensajes(screen, lista, mensajesInst) {
     panel = deRep.length
       ? deRep.map(m => cardMsg(m, { chip: 'Representante' })).join('')
       : '<div class="msg-empty-sec">No hay mensajes de representantes.</div>';
+  } else if (msgSubTab === 'env_autoridades' && me.rol === 'tutor') {
+    const env = window._tutorEnvAuth || [];
+    panel = env.length
+      ? env.map(m => cardMsg(m, {
+          paraNombre: 'Autoridad: ' + (m.destinoNombre || ''),
+          chip: 'Enviado a Autoridad',
+          mostrarEstudiante: false,
+          ocultarRemitente: true,
+        })).join('')
+      : '<div class="msg-empty-sec">Aún no has enviado mensajes a autoridades.</div>';
   } else if (msgSubTab === 'env_docentes' && me.rol === 'tutor') {
     const env = window._tutorEnvDoc || [];
     panel = env.length
@@ -2865,7 +2883,7 @@ function cambiarMsgMainTab(id) {
   if (me && me.rol === 'docente') {
     msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_todos';
   } else if (me && me.rol === 'tutor') {
-    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_docentes';
+    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_autoridades';
   } else {
     msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_docentes';
   }
