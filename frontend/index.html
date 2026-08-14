@@ -2499,19 +2499,21 @@ function renderMensajes(screen, lista, mensajesInst) {
     }
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
-    // Mensajes a representantes (lista principal remitente docente)
     const envRep = (lista || []).filter(m => (m.remitenteRol || '').toLowerCase() === 'docente' && m.remitenteId === me.id).sort(byFechaDesc);
-    // Unificar enviados: institucionales al tutor + mensajes a estudiantes/reps (sin duplicar por texto+fecha simple)
+    // Un solo listado: el mismo mensaje (Tutor + Representante). Deduplicar por texto+minuto.
     const enviadosUnificados = [];
     const seen = new Set();
-    function addEnv(m, chip) {
-      const k = String(m.id || '') + '|' + String(m.fecha || '') + '|' + String(m.texto || '').slice(0, 40);
+    function addEnv(m) {
+      const textoKey = String(m.texto || '').replace(/^\[[^\]]+\]\s*/, '').slice(0, 100);
+      const fechaKey = String(m.fecha || '').slice(0, 16);
+      const k = textoKey + '|' + fechaKey;
       if (seen.has(k)) return;
       seen.add(k);
-      enviadosUnificados.push({ m: m, chip: chip });
+      enviadosUnificados.push({ m: m, chip: 'Tutor y Representante' });
     }
-    envRep.forEach(m => addEnv(m, 'Tutor y Representante'));
-    enviadosTutor.forEach(m => addEnv(m, 'Tutor y Representante'));
+    // Preferir la copia institucional al tutor; si no, la de representantes
+    enviadosTutor.forEach(addEnv);
+    envRep.forEach(addEnv);
     enviadosUnificados.sort((a, b) => String((b.m && b.m.fecha) || '').localeCompare(String((a.m && a.m.fecha) || '')));
     window._enviadosTutorCache = enviadosTutor;
     window._docenteEnviadosUnificados = enviadosUnificados;
@@ -2521,12 +2523,10 @@ function renderMensajes(screen, lista, mensajesInst) {
         { id: 'autoridades', label: 'Autoridades', unread: uAuth },
         { id: 'rec_tutor', label: 'Tutor', unread: uTutorRec },
       ];
+      if (msgSubTab === 'tutor' || msgSubTab === 'representantes' || msgSubTab === 'env_todos') msgSubTab = 'autoridades';
       if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
     } else {
-      // Enviados: una sola casilla (el mismo mensaje llega a Tutor y Representante)
-      tabs = [
-        { id: 'env_todos', label: 'Enviados', unread: 0 },
-      ];
+      tabs = []; // sin subcasillas
       msgSubTab = 'env_todos';
     }
   } else if (me.rol === 'representante') {
@@ -2559,12 +2559,14 @@ function renderMensajes(screen, lista, mensajesInst) {
       `</div>`;
   }
   let subTabsHtml = '';
-  if (!(me.rol === 'docente' && msgMainTab === 'enviados')) {
+  if (me.rol === 'docente' && msgMainTab === 'enviados') {
+    subTabsHtml = `<div class="stu-meta" style="margin:4px 0 12px;padding:10px 12px;background:#eef4fb;border-radius:10px;font-size:13px;color:#334155;">
+      Cada mensaje aparece <b>una sola vez</b>. El mismo envío llega al <b>Tutor</b> y al <b>Representante</b>.
+    </div>`;
+  } else if (tabs && tabs.length) {
     subTabsHtml = `<div class="msg-tabs">` + tabs.map(t =>
       `<button type="button" class="msg-tab ${t.id === msgSubTab ? 'active' : ''}" onclick="cambiarMsgSubTab('${t.id}')">${t.label}${badge(t.unread)}</button>`
     ).join('') + `</div>`;
-  } else {
-    subTabsHtml = `<div class="stu-meta" style="margin:0 0 10px;">Cada mensaje enviado llega al <b>Tutor</b> y al <b>Representante</b>.</div>`;
   }
   const tabsHtml = mainTabsHtml + subTabsHtml;
 
