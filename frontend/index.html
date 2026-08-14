@@ -747,7 +747,7 @@
       <button type="button" class="foto-btn" onclick="document.getElementById('mensajeFotoInput').click()">📷 Foto</button>
       <button type="button" class="foto-btn" id="btnMensajeArchivo" onclick="document.getElementById('mensajeArchivoInput').click()">📎 Archivo</button>
       <input type="file" id="mensajeFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onMensajeFotoSeleccionada(event)">
-      <input type="file" id="mensajeArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf" style="display:none" onchange="onMensajeArchivoSeleccionado(event)">
+      <input type="file" id="mensajeArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.xltm,.xlsb,application/pdf,application/vnd.ms-excel.sheet.macroEnabled.12" style="display:none" onchange="onMensajeArchivoSeleccionado(event)">
     </div>
     <div class="foto-preview-wrap" id="mensajeFotoPreviewWrap">
       <img class="foto-preview" id="mensajeFotoPreview" alt="Vista previa">
@@ -1731,7 +1731,7 @@ async function renderInicioAutoridad(screen) {
         <button type="button" class="foto-btn" onclick="document.getElementById('instFotoInput').click()">📷 Foto</button>
         <button type="button" class="foto-btn" onclick="document.getElementById('instArchivoInput').click()">📎 Archivo</button>
         <input type="file" id="instFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onInstFotoSeleccionada(event)">
-        <input type="file" id="instArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf" style="display:none" onchange="onInstArchivoSeleccionado(event)">
+        <input type="file" id="instArchivoInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.xltm,.xlsb,application/pdf,application/vnd.ms-excel.sheet.macroEnabled.12" style="display:none" onchange="onInstArchivoSeleccionado(event)">
       </div>
       <div class="foto-preview-wrap" id="instFotoPreviewWrap">
         <img class="foto-preview" id="instFotoPreview" alt="Vista previa">
@@ -3399,7 +3399,7 @@ async function onMensajeArchivoSeleccionado(ev) {
   if (!file) return;
   const nombre = file.name || 'archivo.pdf';
   const ext = (nombre.split('.').pop() || '').toLowerCase();
-  if (['pdf','doc','docx','xls','xlsx'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel.'); return; }
+  if (['pdf','doc','docx','xls','xlsx','xlsm','xltm','xlsb'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel (macros .xlsm).'); return; }
   if (file.size > 8 * 1024 * 1024) { showToast('El archivo supera 8 MB.'); return; }
   try {
     showToast('Preparando archivo…');
@@ -3416,7 +3416,7 @@ async function onInstArchivoSeleccionado(ev) {
   if (!file) return;
   const nombre = file.name || 'archivo.pdf';
   const ext = (nombre.split('.').pop() || '').toLowerCase();
-  if (['pdf','doc','docx','xls','xlsx'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel.'); return; }
+  if (['pdf','doc','docx','xls','xlsx','xlsm','xltm','xlsb'].indexOf(ext) < 0) { showToast('Solo PDF, Word o Excel (macros .xlsm).'); return; }
   if (file.size > 8 * 1024 * 1024) { showToast('El archivo supera 8 MB.'); return; }
   try {
     showToast('Preparando archivo…');
