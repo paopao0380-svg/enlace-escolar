@@ -1706,7 +1706,7 @@ async function renderInicioAutoridad(screen) {
   screen.innerHTML = `
     <div class="section-title">Enviar comunicado</div>
     <div class="card" id="formAutoridadCard" style="padding:14px;">
-      <div class="stu-meta" style="margin-bottom:8px;">Como ${me.rol === 'rector' ? 'Rector' : 'Inspector'} puedes escribir a tutores y docentes.</div>
+      <div class="stu-meta" style="margin-bottom:8px;">Como ${me.rol === 'rector' ? 'Rector' : me.rol === 'dece' ? 'DECE' : 'Inspector'} puedes escribir a tutores y docentes.</div>
       <label>Destinatario</label>
       <div class="destino-opciones" id="destinoOpcionesBox">
         ${opts.map(([v,l]) => '<label data-destino-inst="'+v+'" class="'+(destinoInstTipo===v?'sel':'')+'" onclick="setDestinoInst(\''+v+'\')"><input type="radio" name="dest" '+(destinoInstTipo===v?'checked':'')+'> '+l+'</label>').join('')}
@@ -1719,7 +1719,15 @@ async function renderInicioAutoridad(screen) {
         <button type="button" data-tipo-inst="alert" class="${tipo==='alert'?'sel':''}" onclick="setTipoInst('alert')">Llamado</button>
       </div>
       <label>Mensaje</label>
-      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;font-size:16px;"></textarea>
+      <textarea id="textoInst" rows="4" placeholder="Escribe el mensaje o adjunta una foto..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);font-family:inherit;resize:vertical;font-size:16px;"></textarea>
+      <div class="foto-actions">
+        <button type="button" class="foto-btn" onclick="document.getElementById('instFotoInput').click()">📷 Foto / Cámara</button>
+        <input type="file" id="instFotoInput" accept="image/*" capture="environment" style="display:none" onchange="onInstFotoSeleccionada(event)">
+      </div>
+      <div class="foto-preview-wrap" id="instFotoPreviewWrap">
+        <img class="foto-preview" id="instFotoPreview" alt="Vista previa">
+        <button type="button" class="foto-quitar" onclick="quitarInstFoto()">Quitar</button>
+      </div>
       <button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="enviarMensajeInstitucional()">Enviar mensaje</button>
     </div>`;
 
@@ -1737,25 +1745,65 @@ async function renderInicioAutoridad(screen) {
 }
 
 
+
+let instFotoDataUrl = null;
+
+function quitarInstFoto() {
+  instFotoDataUrl = null;
+  const inp = document.getElementById('instFotoInput');
+  if (inp) inp.value = '';
+  const wrap = document.getElementById('instFotoPreviewWrap');
+  if (wrap) wrap.classList.remove('show');
+}
+
+async function onInstFotoSeleccionada(ev) {
+  const file = ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    showToast('Elige una imagen (foto).');
+    return;
+  }
+  try {
+    showToast('Preparando foto…');
+    instFotoDataUrl = await comprimirImagenArchivo(file, 1024, 0.65);
+    const img = document.getElementById('instFotoPreview');
+    const wrap = document.getElementById('instFotoPreviewWrap');
+    if (img) img.src = instFotoDataUrl;
+    if (wrap) wrap.classList.add('show');
+  } catch (e) {
+    showToast('No se pudo leer la foto.');
+    quitarInstFoto();
+  }
+}
+
 async function enviarMensajeInstitucional() {
   const texto = (document.getElementById('textoInst').value || '').trim();
   let destinoId = destinoInstId;
   const sel = document.getElementById('selDestinoId');
   if (sel) destinoId = sel.value || null;
-  if (!texto) { showToast('Escribe el mensaje.'); return; }
+  if (!texto && !instFotoDataUrl) { showToast('Escribe un mensaje o adjunta una foto.'); return; }
   if ((destinoInstTipo === 'tutor' || destinoInstTipo === 'docente') && !destinoId) {
     showToast('Selecciona el destinatario.'); return;
   }
   try {
+    let fotoUrl = '';
+    if (instFotoDataUrl) {
+      showToast('Subiendo foto…');
+      const rFoto = await api('POST', '/api/fotos', { dataUrl: instFotoDataUrl });
+      fotoUrl = (rFoto && rFoto.url) || '';
+      if (!fotoUrl) { showToast('No se pudo subir la foto.'); return; }
+    }
     await api('POST', '/api/autoridades/mensajes', {
       remitenteId: me.id,
       destinoTipo: destinoInstTipo,
       destinoId: destinoId,
       tipo: window._tipoInst || 'info',
-      texto: texto,
+      texto: texto || (fotoUrl ? '(Foto)' : ''),
+      fotoUrl: fotoUrl || undefined,
     });
     showToast('Mensaje enviado correctamente.');
     window._borradorInst = '';
+    quitarInstFoto();
     window._lockRender = false;
     currentTab = 'mensajes';
     render();
@@ -1782,6 +1830,13 @@ async function renderMensajesAutoridad(screen) {
     const tituloHtml = esEspecifico
       ? `<div class="msg-dest-name">${escapeHtml(String(m.destinoNombre).toUpperCase())}</div>`
       : `<div class="msg-dest-general">${escapeHtml(destinoLabel(m.destinoTipo))}</div>`;
+    const foto = String(m.fotoUrl || m.foto_url || '').trim();
+    let fotoHtml = '';
+    if (foto && (foto.indexOf('http') === 0 || foto.indexOf('data:image') === 0)) {
+      const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      fotoHtml = `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)"></div>`;
+    }
+    const textoShow = (m.texto || '') === '(Foto)' ? '' : escapeHtml(m.texto || '');
     return `
       <div class="msg-card tipo-${m.tipo||'info'}">
         <div class="msg-head">
@@ -1789,7 +1844,8 @@ async function renderMensajesAutoridad(screen) {
           <span class="msg-date">${fmtFecha(m.fecha)}</span>
         </div>
         ${tituloHtml}
-        <div class="msg-text">${escapeHtml(m.texto)}</div>
+        ${fotoHtml}
+        ${textoShow ? `<div class="msg-text">${textoShow}</div>` : ''}
         <div class="msg-chain"><span class="chip">${escapeHtml(chip)}</span></div>
       </div>`;
   }).join('');
