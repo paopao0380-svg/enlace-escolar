@@ -94,6 +94,9 @@ def ser_mensaje(m):
         'remitenteRol': m['remitente_rol'], 'tipo': m['tipo'], 'texto': m['texto'], 'fecha': m['fecha'],
         'confirmadoTutor': bool(m['confirmado_tutor']), 'confirmadoRepresentante': bool(m['confirmado_representante']),
         'fotoUrl': (_safe_get(m, 'foto_url', None) or _safe_get(m, 'fotoUrl', None) or '') or '',
+        'archivoUrl': (_safe_get(m, 'archivo_url', None) or '') or '',
+        'archivoNombre': (_safe_get(m, 'archivo_nombre', None) or '') or '',
+        'archivoTipo': (_safe_get(m, 'archivo_tipo', None) or '') or '',
     }
 
 
@@ -581,12 +584,17 @@ def h_crear_mensaje(params, body):
     tipo = body.get('tipo')
     texto = (body.get('texto') or '').strip()
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     if not all([estudiante_id, remitente_id, remitente_rol, tipo]):
         raise ApiError(400, 'Faltan datos del mensaje.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if remitente_rol == 'representante' and archivo_url:
+        raise ApiError(403, 'El Representante no puede enviar archivos.')
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     mid = uid('m')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
     if remitente_rol not in ('tutor', 'docente', 'representante'):
@@ -595,14 +603,20 @@ def h_crear_mensaje(params, body):
     confirmado_rep = 1 if remitente_rol == 'representante' else 0
     try:
         run(
-            "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep, foto_url or None),
+            "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
         )
     except Exception:
-        run(
-            "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,?,?)",
-            (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep),
-        )
+        try:
+            run(
+                "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep, foto_url or None),
+            )
+        except Exception:
+            run(
+                "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,?,?)",
+                (mid, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_rep),
+            )
     try:
         notificar_destinatarios_mensaje(estudiante_id, remitente_id, remitente_rol, texto if texto != '(Foto)' else 'Foto')
     except Exception as e:
@@ -757,12 +771,15 @@ def h_mensaje_a_curso(params, body):
     texto = (body.get('texto') or '').strip()
     tipo = body.get('tipo') or 'alert'
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     if not tutor_id:
         raise ApiError(400, 'Faltan datos del mensaje.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol='tutor'", (tutor_id,))
     if not tutor:
         raise ApiError(404, 'Tutor no encontrado.')
@@ -781,14 +798,20 @@ def h_mensaje_a_curso(params, body):
         mid = uid('msg')
         try:
             run(
-                'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)',
-                (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha, foto_url or None),
+                'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,1,0,?,?,?,?)',
+                (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
             )
         except Exception:
-            run(
-                'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)',
-                (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
-            )
+            try:
+                run(
+                    'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)',
+                    (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha, foto_url or None),
+                )
+            except Exception:
+                run(
+                    'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)',
+                    (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
+                )
         creados.append(mid)
     try:
         _tutor = row("SELECT * FROM usuarios WHERE id = ?", (tutor_id,))
@@ -978,6 +1001,9 @@ def ser_msg_inst(m, remitente_nombre=None):
         'texto': m['texto'],
         'fecha': m['fecha'],
         'fotoUrl': (_safe_get(m, 'foto_url', None) or _safe_get(m, 'fotoUrl', None) or '') or '',
+        'archivoUrl': (_safe_get(m, 'archivo_url', None) or '') or '',
+        'archivoNombre': (_safe_get(m, 'archivo_nombre', None) or '') or '',
+        'archivoTipo': (_safe_get(m, 'archivo_tipo', None) or '') or '',
     }
 
 
@@ -993,12 +1019,15 @@ def h_crear_mensaje_institucional(params, body):
     tipo = (body.get('tipo') or 'info').strip()
     texto = (body.get('texto') or '').strip()
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     if not remitente_id or not destino_tipo:
         raise ApiError(400, 'Completa destino y mensaje.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente', 'autoridad', 'todos_autoridades'):
         raise ApiError(400, 'Destino no válido.')
     if destino_tipo in ('tutor', 'docente', 'autoridad') and not destino_id:
@@ -1021,14 +1050,20 @@ def h_crear_mensaje_institucional(params, body):
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
     try:
         run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
-            (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha, foto_url or None),
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
         )
     except Exception:
-        run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-            (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha),
-        )
+        try:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+                (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha, foto_url or None),
+            )
+        except Exception:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha),
+            )
     try:
         _preview = (texto if texto != '(Foto)' else 'Foto')[:120]
         _nombre_a = rem.get('nombre') or 'Autoridad'
@@ -1564,6 +1599,52 @@ def _upload_foto_bytes(raw, filename="foto.jpg"):
     )
 
 
+
+ALLOWED_ARCHIVO_MIME = {
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.ms-excel': 'xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+}
+ALLOWED_ARCHIVO_EXT = {'.pdf', '.doc', '.docx', '.xls', '.xlsx'}
+
+
+def h_subir_archivo(params, body):
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
+    nombre = (body.get('nombre') or body.get('name') or 'archivo.pdf').strip()
+    mime = (body.get('mime') or body.get('type') or '').strip().lower()
+    data_url = (body.get('dataUrl') or body.get('data_url') or '').strip()
+    b64 = (body.get('base64') or '').strip()
+    if data_url.startswith('data:') and ',' in data_url:
+        header, b64 = data_url.split(',', 1)
+        if not mime and ';' in header:
+            mime = header[5:].split(';')[0].strip().lower()
+    if not b64:
+        raise ApiError(400, 'Archivo inválido.')
+    import base64
+    import os as _os
+    try:
+        raw = base64.b64decode(b64)
+    except Exception:
+        raise ApiError(400, 'No se pudo leer el archivo.')
+    if len(raw) > 8000000:
+        raise ApiError(400, 'El archivo supera 8 MB. Usa uno más liviano.')
+    if len(raw) < 20:
+        raise ApiError(400, 'Archivo vacío.')
+    ext = _os.path.splitext(nombre)[1].lower()
+    if mime not in ALLOWED_ARCHIVO_MIME and ext not in ALLOWED_ARCHIVO_EXT:
+        raise ApiError(400, 'Solo se permiten PDF, Word o Excel.')
+    tipo = ALLOWED_ARCHIVO_MIME.get(mime) or ext.replace('.', '')
+    safe_name = re.sub(r'[^a-zA-Z0-9._-]+', '_', nombre)[:80] or ('archivo.' + tipo)
+    url = _upload_foto_bytes(raw, safe_name)
+    return 200, {'url': url, 'nombre': nombre, 'tipo': tipo, 'ok': True}
+
+
 def h_subir_foto(params, body):
     try:
         from db import ensure_foto_columns
@@ -1592,6 +1673,7 @@ def h_subir_foto(params, body):
 
 ROUTES = [
     ('POST', r'^/api/fotos$', h_subir_foto),
+    ('POST', r'^/api/archivos$', h_subir_archivo),
     ('GET', r'^/api/push/vapid-public-key$', h_push_vapid_public),
     ('POST', r'^/api/push/subscribe$', h_push_subscribe),
     ('POST', r'^/api/push/unsubscribe$', h_push_unsubscribe),
