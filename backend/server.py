@@ -1324,19 +1324,28 @@ def h_mensajes_enviados_tutor(params, body):
         d['destinoTipo'] = 'representante'
         d['remitenteNombre'] = tutor.get('nombre') or 'Tutor'
         out.append(d)
-    # A docentes (institucionales)
+    # Institucionales: docentes y autoridades
     lista2 = rows(
         "SELECT * FROM mensajes_institucionales WHERE remitente_id = ? AND remitente_rol = 'tutor' ORDER BY fecha DESC",
         (tid,),
     )
     for m in lista2:
+        dest_tipo = (m.get('destino_tipo') or 'docente').strip().lower()
         dest_nombre = ''
         if m.get('destino_id'):
-            u = row('SELECT nombre FROM usuarios WHERE id = ?', (m['destino_id'],))
-            dest_nombre = u['nombre'] if u else 'Docente'
+            u = row('SELECT nombre, rol FROM usuarios WHERE id = ?', (m['destino_id'],))
+            if u:
+                dest_nombre = u.get('nombre') or ''
+        if not dest_nombre:
+            if dest_tipo in ('autoridad', 'todos_autoridades'):
+                dest_nombre = 'Autoridad'
+            elif dest_tipo == 'docente':
+                dest_nombre = 'Docente'
+            else:
+                dest_nombre = dest_tipo or 'Destinatario'
         d = ser_msg_inst(m, tutor.get('nombre') or 'Tutor')
         d['destinoNombre'] = dest_nombre
-        d['destinoTipo'] = 'docente'
+        d['destinoTipo'] = dest_tipo
         out.append(d)
     out.sort(key=lambda x: str(x.get('fecha') or ''), reverse=True)
     return 200, {'mensajes': out}
