@@ -976,27 +976,58 @@ def ser_msg_inst(m, remitente_nombre=None):
 
 
 def h_crear_mensaje_institucional(params, body):
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     remitente_id = body.get('remitenteId')
     destino_tipo = (body.get('destinoTipo') or '').strip()
     destino_id = body.get('destinoId')
     tipo = (body.get('tipo') or 'info').strip()
     texto = (body.get('texto') or '').strip()
-    if not remitente_id or not destino_tipo or not texto:
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not remitente_id or not destino_tipo:
         raise ApiError(400, 'Completa destino y mensaje.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
     if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente'):
         raise ApiError(400, 'Destino no válido.')
     if destino_tipo in ('tutor', 'docente') and not destino_id:
         raise ApiError(400, 'Selecciona el destinatario.')
     rem = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
     if not rem or rem['rol'] not in ('rector', 'inspector', 'dece'):
-        raise ApiError(403, 'Solo Rector o Inspector pueden enviar este tipo de mensaje.')
+        raise ApiError(403, 'Solo autoridades pueden enviar este tipo de mensaje.')
     mid = uid('mi')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    run(
-        "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-        (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha),
-    )
-    return 201, {'ok': True, 'mensajeId': mid}
+    try:
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha, foto_url or None),
+        )
+    except Exception:
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+            (mid, remitente_id, rem['rol'], destino_tipo, destino_id, tipo, texto, fecha),
+        )
+    try:
+        _preview = (texto if texto != '(Foto)' else 'Foto')[:120]
+        _nombre_a = rem.get('nombre') or 'Autoridad'
+        if destino_tipo == 'tutor' and destino_id:
+            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'docente' and destino_id:
+            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'todos_tutores':
+            for _t in rows("SELECT id FROM usuarios WHERE rol='tutor'"):
+                enviar_push_a_usuario(_t['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'todos_docentes':
+            for _d in rows("SELECT id FROM usuarios WHERE rol='docente'"):
+                enviar_push_a_usuario(_d['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+    except Exception as _ex:
+        print('notify inst error:', _ex)
+    return 201, {'ok': True, 'mensajeId': mid, 'conFoto': bool(foto_url)}
 
 
 def h_mensajes_enviados_autoridad(params, body):
