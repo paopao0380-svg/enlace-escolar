@@ -267,10 +267,11 @@ def init_db():
 
 def ensure_foto_columns():
     for table in ("mensajes", "mensajes_institucionales"):
-        try:
-            execute_write("ALTER TABLE %s ADD COLUMN foto_url TEXT" % table)
-        except Exception:
-            pass
+        for col in ("foto_url", "archivo_url", "archivo_nombre", "archivo_tipo"):
+            try:
+                execute_write("ALTER TABLE %s ADD COLUMN %s TEXT" % (table, col))
+            except Exception:
+                pass
 
 
 

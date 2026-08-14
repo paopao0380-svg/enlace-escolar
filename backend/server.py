@@ -856,10 +856,13 @@ def h_mensaje_docente_a_tutor(params, body):
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
     if not docente_id or not curso_id:
         raise ApiError(400, 'Completa el mensaje y el curso.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     doc = row('SELECT * FROM usuarios WHERE id = ? AND rol = ?', (docente_id, 'docente'))
     if not doc:
         raise ApiError(403, 'Solo un docente puede enviar este mensaje.')
@@ -881,16 +884,25 @@ def h_mensaje_docente_a_tutor(params, body):
         texto_final = '[' + str(asignatura) + '] ' + texto
     mid = uid('mi')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     try:
         run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
-            (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha, foto_url or None),
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
         )
     except Exception:
-        run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-            (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
-        )
+        try:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+                (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha, foto_url or None),
+            )
+        except Exception:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
+            )
     try:
         nombre_d = doc.get('nombre') or 'Docente'
         enviar_push_a_usuario(tutor_id, 'Mensaje del Docente ' + nombre_d, (texto or '')[:120], {'tipo': 'mensaje'})
@@ -908,14 +920,20 @@ def h_mensaje_docente_a_tutor(params, body):
             midr = uid('m')
             try:
                 run(
-                    "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)",
-                    (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha, foto_url or None),
+                    "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,1,0,?,?,?,?)",
+                    (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
                 )
             except Exception:
-                run(
-                    "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)",
-                    (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha),
-                )
+                try:
+                    run(
+                        "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)",
+                        (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha, foto_url or None),
+                    )
+                except Exception:
+                    run(
+                        "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)",
+                        (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha),
+                    )
             enviados_rep += 1
             try:
                 enviar_push_a_usuario(est['representante_id'], 'Mensaje del Docente ' + (doc.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
@@ -1164,16 +1182,24 @@ def h_docentes_de_curso(params, body):
 
 def h_mensaje_tutor_a_todos_docentes(params, body):
     """Tutor envía el mismo mensaje a todos los docentes de su curso."""
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     tutor_id = body.get('tutorId')
     tipo = (body.get('tipo') or 'info').strip()
     texto = (body.get('texto') or '').strip()
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     if not tutor_id:
         raise ApiError(400, 'Faltan datos.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol = 'tutor'", (tutor_id,))
     if not tutor:
         raise ApiError(403, 'Solo el Tutor puede enviar este mensaje.')
@@ -1194,35 +1220,49 @@ def h_mensaje_tutor_a_todos_docentes(params, body):
         mid = uid('mi')
         try:
             run(
-                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
-                (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha, foto_url or None),
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
             )
         except Exception:
-            run(
-                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-                (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha),
-            )
+            try:
+                run(
+                    "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha, foto_url or None),
+                )
+            except Exception:
+                run(
+                    "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                    (mid, tutor_id, 'tutor', 'docente', d['id'], tipo, texto, fecha),
+                )
         ids.append(mid)
         try:
             enviar_push_a_usuario(d['id'], 'Mensaje del Tutor ' + (tutor.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
         except Exception:
             pass
-    return 201, {'ok': True, 'enviados': len(ids), 'mensajeIds': ids}
+    return 201, {'ok': True, 'enviados': len(ids), 'mensajeIds': ids, 'conArchivo': bool(archivo_url)}
 
 
 def h_mensaje_tutor_a_docente(params, body):
     """Tutor envía mensaje a un docente de su curso."""
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     tutor_id = body.get('tutorId')
     docente_id = body.get('docenteId')
     tipo = (body.get('tipo') or 'info').strip()
     texto = (body.get('texto') or '').strip()
     foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    archivo_url = (body.get('archivoUrl') or body.get('archivo_url') or '').strip()
+    archivo_nombre = (body.get('archivoNombre') or body.get('archivo_nombre') or '').strip()
+    archivo_tipo = (body.get('archivoTipo') or body.get('archivo_tipo') or '').strip()
     if not tutor_id or not docente_id:
         raise ApiError(400, 'Faltan datos.')
-    if not texto and not foto_url:
-        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto and not foto_url and not archivo_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta foto/archivo.')
     if not texto:
-        texto = '(Foto)'
+        texto = '(Foto)' if foto_url else ('(Archivo)' if archivo_url else '')
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol = 'tutor'", (tutor_id,))
     if not tutor:
         raise ApiError(403, 'Solo el Tutor puede enviar este mensaje.')
@@ -1239,19 +1279,26 @@ def h_mensaje_tutor_a_docente(params, body):
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
     try:
         run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
-            (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha, foto_url or None),
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url, archivo_url, archivo_nombre, archivo_tipo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha, foto_url or None, archivo_url or None, archivo_nombre or None, archivo_tipo or None),
         )
     except Exception:
-        run(
-            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-            (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha),
-        )
+        try:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+                (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha, foto_url or None),
+            )
+        except Exception:
+            run(
+                "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                (mid, tutor_id, 'tutor', 'docente', docente_id, tipo, texto, fecha),
+            )
     try:
         enviar_push_a_usuario(docente_id, 'Mensaje del Tutor ' + (tutor.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
     except Exception as ex:
         print('push tutor->docente', ex)
-    return 201, {'ok': True, 'mensajeId': mid}
+    return 201, {'ok': True, 'mensajeId': mid, 'conArchivo': bool(archivo_url)}
+
 
 
 def h_mensajes_enviados_tutor(params, body):
