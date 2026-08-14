@@ -809,16 +809,21 @@ def h_mensajes_docente_enviados_tutor(params, body):
     return 200, {'mensajes': out}
 
 def h_mensaje_docente_a_tutor(params, body):
+    """Docente envía mensaje al Tutor del curso y, el mismo, a los representantes del curso."""
     docente_id = body.get('docenteId')
     curso_id = body.get('cursoId')
     tipo = (body.get('tipo') or 'info').strip()
     texto = (body.get('texto') or '').strip()
-    if not docente_id or not curso_id or not texto:
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not docente_id or not curso_id:
         raise ApiError(400, 'Completa el mensaje y el curso.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
     doc = row('SELECT * FROM usuarios WHERE id = ? AND rol = ?', (docente_id, 'docente'))
     if not doc:
         raise ApiError(403, 'Solo un docente puede enviar este mensaje.')
-    # Debe estar vinculado al curso
     vinculo = row(
         'SELECT * FROM docente_cursos WHERE docente_id = ? AND curso_id = ?',
         (docente_id, curso_id),
@@ -834,32 +839,54 @@ def h_mensaje_docente_a_tutor(params, body):
     asignatura = vinculo.get('asignatura') or ''
     texto_final = texto
     if asignatura:
-        texto_final = f"[{asignatura}] {texto}"
+        texto_final = '[' + str(asignatura) + '] ' + texto
     mid = uid('mi')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    run(
-        "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
-        (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
-    )
     try:
-        _preview = (texto or '')[:120]
-        _nombre_a = (autoridad or {}).get('nombre') if 'autoridad' in dir() else None
-        if not _nombre_a:
-            _au = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
-            _nombre_a = (_au or {}).get('nombre') or 'Autoridad'
-        if destino_tipo == 'tutor' and destino_id:
-            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
-        elif destino_tipo == 'docente' and destino_id:
-            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
-        elif destino_tipo == 'todos_tutores':
-            for _t in rows("SELECT id FROM usuarios WHERE rol='tutor'"):
-                enviar_push_a_usuario(_t['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
-        elif destino_tipo == 'todos_docentes':
-            for _d in rows("SELECT id FROM usuarios WHERE rol='docente'"):
-                enviar_push_a_usuario(_d['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
-    except Exception as _ex:
-        print('notify inst error:', _ex)
-    return 201, {'ok': True, 'mensajeId': mid}
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha, foto_url) VALUES (?,?,?,?,?,?,?,?,?)",
+            (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha, foto_url or None),
+        )
+    except Exception:
+        run(
+            "INSERT INTO mensajes_institucionales (id, remitente_id, remitente_rol, destino_tipo, destino_id, tipo, texto, fecha) VALUES (?,?,?,?,?,?,?,?)",
+            (mid, docente_id, 'docente', 'tutor', tutor_id, tipo, texto_final, fecha),
+        )
+    try:
+        nombre_d = doc.get('nombre') or 'Docente'
+        enviar_push_a_usuario(tutor_id, 'Mensaje del Docente ' + nombre_d, (texto or '')[:120], {'tipo': 'mensaje'})
+    except Exception as e:
+        print('push tutor:', e)
+
+    # Mismo mensaje a todos los representantes del curso
+    enviados_rep = 0
+    try:
+        estudiantes = rows(
+            "SELECT * FROM estudiantes WHERE curso_id = ? AND representante_id IS NOT NULL",
+            (curso_id,),
+        )
+        for est in estudiantes:
+            midr = uid('m')
+            try:
+                run(
+                    "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)",
+                    (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha, foto_url or None),
+                )
+            except Exception:
+                run(
+                    "INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)",
+                    (midr, est['id'], docente_id, 'docente', tipo, texto_final, fecha),
+                )
+            enviados_rep += 1
+            try:
+                enviar_push_a_usuario(est['representante_id'], 'Mensaje del Docente ' + (doc.get('nombre') or ''), (texto or '')[:120], {'tipo': 'mensaje'})
+            except Exception:
+                pass
+    except Exception as e:
+        print('copia reps error:', e)
+
+    return 201, {'ok': True, 'mensajeId': mid, 'enviadosRepresentantes': enviados_rep}
+
 
 
 def h_crear_autoridad(params, body):
