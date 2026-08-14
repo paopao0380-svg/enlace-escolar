@@ -2184,7 +2184,7 @@ async function renderInicioDocente(screen) {
   const tutorNombre = lista.find(e => e.tutorNombre)?.tutorNombre || '';
   const botonTutor = activa ? `
     <div style="margin:12px 0 14px;">
-      <button type="button" class="btn-broadcast" onclick="abrirMensajeTutor()">📢 Enviar mensaje al Tutor${tutorNombre ? ' · ' + tutorNombre : ''}</button>
+      <button type="button" class="btn-broadcast" onclick="abrirMensajeTutor()">📢 Enviar al Tutor y Representantes${tutorNombre ? ' · ' + tutorNombre : ''}</button>
     </div>` : '';
 
   screen.innerHTML = `<div class="section-title">Mis cursos</div>` + selector +
@@ -2735,7 +2735,7 @@ async function abrirMensajeTutor() {
   mensajeModoTutor = true;
   mensajeEstudianteId = null;
   mensajeTipo = 'info';
-  document.getElementById('mensajeDestino').textContent = 'Destino: Tutor del curso seleccionado';
+  document.getElementById('mensajeDestino').textContent = 'Se enviará al Tutor y a los Representantes del curso';
   document.getElementById('mensajeTexto').value = '';
   try { quitarMensajeFoto(); } catch (e) {}
   document.getElementById('mensajeTexto').placeholder = 'Escribe el mensaje para el Tutor del curso...';
@@ -2778,9 +2778,11 @@ async function abrirMensaje(estudianteId) {
   restaurarTipoMensajeUI();
   mensajeEstudianteId = estudianteId;
   mensajeTipo = 'alert';
-  document.getElementById('mensajeDestino').textContent = me.rol === 'tutor'
-    ? 'El representante recibirá el mensaje'
-    : 'Tutor y representante recibirán copia';
+  document.getElementById('mensajeDestino').textContent =
+    me.rol === 'tutor' ? 'El representante recibirá el mensaje'
+    : me.rol === 'docente' ? 'Se enviará al Tutor y al Representante'
+    : me.rol === 'representante' ? 'El Tutor recibirá el mensaje'
+    : 'Se enviará el mensaje';
   document.getElementById('mensajeTexto').value = '';
   try { quitarMensajeFoto(); } catch (e) {}
   seleccionarTipo('alert');
@@ -2944,7 +2946,7 @@ async function enviarMensaje() {
       mensajeModoTutor = false;
       quitarMensajeFoto();
       closeOv('ovMensaje');
-      showToast('Mensaje enviado al Tutor del curso.');
+      showToast('Mensaje enviado al Tutor y a los Representantes del curso.');
     } else if (mensajeEstudianteId === '__TODOS__') {
       const r = await api('POST', '/api/mensajes/curso', {
         remitenteId: me.id,
@@ -2966,7 +2968,7 @@ async function enviarMensaje() {
       });
       quitarMensajeFoto();
       closeOv('ovMensaje');
-      showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : 'Mensaje entregado al tutor y al representante.');
+      showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : me.rol === 'docente' ? 'Mensaje enviado al Tutor y al Representante.' : 'Mensaje entregado al tutor y al representante.');
     }
     render();
   } catch (e) { showToast(e.message); }
