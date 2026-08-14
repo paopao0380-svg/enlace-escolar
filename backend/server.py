@@ -93,7 +93,7 @@ def ser_mensaje(m):
         'id': m['id'], 'estudianteId': m['estudiante_id'], 'remitenteId': m['remitente_id'],
         'remitenteRol': m['remitente_rol'], 'tipo': m['tipo'], 'texto': m['texto'], 'fecha': m['fecha'],
         'confirmadoTutor': bool(m['confirmado_tutor']), 'confirmadoRepresentante': bool(m['confirmado_representante']),
-        'fotoUrl': _safe_get(m, 'foto_url', '') or '',
+        'fotoUrl': (_safe_get(m, 'foto_url', None) or _safe_get(m, 'fotoUrl', None) or '') or '',
     }
 
 
@@ -747,12 +747,22 @@ def h_borrar_todo(params, body):
 
 
 def h_mensaje_a_curso(params, body):
-    """Tutor envia el mismo mensaje a todos los representantes del curso."""
+    """Tutor envia el mismo mensaje (texto y/o foto) a todos los representantes del curso."""
+    try:
+        from db import ensure_foto_columns
+        ensure_foto_columns()
+    except Exception:
+        pass
     tutor_id = body.get('remitenteId') or params.get('id')
     texto = (body.get('texto') or '').strip()
     tipo = body.get('tipo') or 'alert'
-    if not tutor_id or not texto:
+    foto_url = (body.get('fotoUrl') or body.get('foto_url') or '').strip()
+    if not tutor_id:
         raise ApiError(400, 'Faltan datos del mensaje.')
+    if not texto and not foto_url:
+        raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
+    if not texto:
+        texto = '(Foto)'
     tutor = row("SELECT * FROM usuarios WHERE id = ? AND rol='tutor'", (tutor_id,))
     if not tutor:
         raise ApiError(404, 'Tutor no encontrado.')
@@ -769,22 +779,28 @@ def h_mensaje_a_curso(params, body):
     creados = []
     for est in estudiantes:
         mid = uid('msg')
-        run(
-            'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)',
-            (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
-        )
+        try:
+            run(
+                'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante, foto_url) VALUES (?,?,?,?,?,?,?,1,0,?)',
+                (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha, foto_url or None),
+            )
+        except Exception:
+            run(
+                'INSERT INTO mensajes (id, estudiante_id, remitente_id, remitente_rol, tipo, texto, fecha, confirmado_tutor, confirmado_representante) VALUES (?,?,?,?,?,?,?,1,0)',
+                (mid, est['id'], tutor_id, 'tutor', tipo, texto, fecha),
+            )
         creados.append(mid)
     try:
         _tutor = row("SELECT * FROM usuarios WHERE id = ?", (tutor_id,))
         _nombre_t = (_tutor or {}).get('nombre') or 'Tutor'
-        _preview = (texto or '')[:120]
+        _preview = (texto if texto != '(Foto)' else 'Foto')[:120]
         for _e in estudiantes:
             _rid = _e.get('representante_id')
             if _rid:
                 enviar_push_a_usuario(_rid, 'Mensaje del Tutor ' + _nombre_t, _preview, {'tipo': 'mensaje'})
     except Exception as _ex:
         print('notify curso error:', _ex)
-    return 201, {'ok': True, 'enviados': len(creados), 'mensajeIds': creados}
+    return 201, {'ok': True, 'enviados': len(creados), 'mensajeIds': creados, 'conFoto': bool(foto_url)}
 
 
 
@@ -955,7 +971,7 @@ def ser_msg_inst(m, remitente_nombre=None):
         'tipo': m['tipo'],
         'texto': m['texto'],
         'fecha': m['fecha'],
-        'fotoUrl': _safe_get(m, 'foto_url', '') or '',
+        'fotoUrl': (_safe_get(m, 'foto_url', None) or _safe_get(m, 'fotoUrl', None) or '') or '',
     }
 
 
