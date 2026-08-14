@@ -1,5 +1,5 @@
 // Enlace Escolar SW + Push
-const CACHE_NAME = 'enlace-escolar-v20260813-docfix';
+const CACHE_NAME = 'enlace-escolar-v20260813-docmsg';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

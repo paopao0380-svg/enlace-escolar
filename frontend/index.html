@@ -2442,11 +2442,13 @@ function renderMensajes(screen, lista, mensajesInst) {
 
   // Clasificar
   const instAuth = [];
+  const instFromTutor = [];
   const instDoc = [];
   for (const m of mensajesInst) {
     const r = (m.remitenteRol || '').toLowerCase();
     if (r === 'docente') instDoc.push(m);
-    else instAuth.push(m); // autoridades + tutor
+    else if (r === 'tutor') instFromTutor.push(m);
+    else instAuth.push(m); // rector, inspector, dece, autoridad
   }
   const deDocente = [];
   const deRep = [];
@@ -2463,7 +2465,9 @@ function renderMensajes(screen, lista, mensajesInst) {
   deRep.sort(byFechaDesc);
 
   const msgsDocenteAll = instDoc.concat(deDocente).sort(byFechaDesc);
+  instFromTutor.sort(byFechaDesc);
   const uAuth = countUnread(instAuth);
+  const uTutorRec = countUnread(instFromTutor);
   const uDoc = countUnread(msgsDocenteAll);
   const uRep = countUnread(deRep);
 
@@ -2495,13 +2499,21 @@ function renderMensajes(screen, lista, mensajesInst) {
     }
   } else if (me.rol === 'docente') {
     const enviadosTutor = (window._mensajesDocenteATutor || []).slice().sort(byFechaDesc);
-    tabs = [
-      { id: 'autoridades', label: 'Autoridades', unread: uAuth },
-      { id: 'tutor', label: 'Al Tutor', unread: 0 },
-      { id: 'representantes', label: 'Representantes', unread: 0 },
-    ];
     window._enviadosTutorCache = enviadosTutor;
-    if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
+    if (msgMainTab !== 'recibidos' && msgMainTab !== 'enviados') msgMainTab = 'recibidos';
+    if (msgMainTab === 'recibidos') {
+      tabs = [
+        { id: 'autoridades', label: 'Autoridades', unread: uAuth },
+        { id: 'rec_tutor', label: 'Tutor', unread: uTutorRec },
+      ];
+      if (!tabs.find(t => t.id === msgSubTab)) msgSubTab = 'autoridades';
+    } else {
+      tabs = [
+        { id: 'tutor', label: 'Al Tutor', unread: 0 },
+        { id: 'representantes', label: 'Representantes', unread: 0 },
+      ];
+      if (msgSubTab !== 'tutor' && msgSubTab !== 'representantes') msgSubTab = 'tutor';
+    }
   } else if (me.rol === 'representante') {
     const recibidos = lista.filter(m => m.remitenteId !== me.id).sort(byFechaDesc);
     const enviados = lista.filter(m => m.remitenteId === me.id).sort(byFechaDesc);
@@ -2524,6 +2536,12 @@ function renderMensajes(screen, lista, mensajesInst) {
       `<button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="cambiarMsgMainTab('recibidos')">Recibidos${badge(uRec)}</button>` +
       `<button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="cambiarMsgMainTab('enviados')">Enviados</button>` +
       `</div>`;
+  } else if (me.rol === 'docente') {
+    const uRec = uAuth + uTutorRec;
+    mainTabsHtml = `<div class="msg-tabs msg-tabs-main">` +
+      `<button type="button" class="msg-tab ${msgMainTab === 'recibidos' ? 'active' : ''}" onclick="cambiarMsgMainTab('recibidos')">Recibidos${badge(uRec)}</button>` +
+      `<button type="button" class="msg-tab ${msgMainTab === 'enviados' ? 'active' : ''}" onclick="cambiarMsgMainTab('enviados')">Enviados</button>` +
+      `</div>`;
   }
   const tabsHtml = mainTabsHtml + `<div class="msg-tabs">` + tabs.map(t =>
     `<button type="button" class="msg-tab ${t.id === msgSubTab ? 'active' : ''}" onclick="cambiarMsgSubTab('${t.id}')">${t.label}${badge(t.unread)}</button>`
@@ -2535,6 +2553,10 @@ function renderMensajes(screen, lista, mensajesInst) {
     panel = instAuth.length
       ? instAuth.map(m => cardMsg(m, { chip: rolLabel(m.remitenteRol), mostrarEstudiante: false })).join('')
       : '<div class="msg-empty-sec">No hay comunicados de autoridades.</div>';
+  } else if (msgSubTab === 'rec_tutor' && me.rol === 'docente') {
+    panel = instFromTutor.length
+      ? instFromTutor.map(m => cardMsg(m, { chip: 'Tutor', mostrarEstudiante: false })).join('')
+      : '<div class="msg-empty-sec">No hay mensajes del Tutor.</div>';
   } else if (msgSubTab === 'docentes') {
     panel = msgsDocenteAll.length
       ? msgsDocenteAll.map(m => cardMsg(m, { chip: 'Docente', forzarAsignatura: true })).join('')
@@ -2589,8 +2611,13 @@ function renderMensajes(screen, lista, mensajesInst) {
 
 function cambiarMsgMainTab(id) {
   msgMainTab = id;
-  if (id === 'recibidos') msgSubTab = 'autoridades';
-  else msgSubTab = 'env_docentes';
+  if (me && me.rol === 'docente') {
+    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'tutor';
+  } else if (me && me.rol === 'tutor') {
+    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_docentes';
+  } else {
+    msgSubTab = (id === 'recibidos') ? 'autoridades' : 'env_docentes';
+  }
   const screen = document.getElementById('screen');
   if (screen && window._msgsCache) {
     renderMensajes(screen, window._msgsCache.lista, window._msgsCache.inst);
