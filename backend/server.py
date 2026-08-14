@@ -930,6 +930,12 @@ def h_login_autoridad(params, body):
     return 200, {'usuario': ser_usuario(u)}
 
 
+def h_lista_autoridades(params, body):
+    lista = rows("SELECT id, nombre, rol FROM usuarios WHERE rol IN ('rector','inspector','dece') ORDER BY nombre")
+    out = [{'id': u['id'], 'nombre': u['nombre'], 'rol': u['rol']} for u in lista]
+    return 200, {'autoridades': out}
+
+
 def h_lista_tutores(params, body):
     lista = rows("SELECT id, nombre, curso_id FROM usuarios WHERE rol='tutor' ORDER BY nombre")
     out = []
@@ -993,13 +999,24 @@ def h_crear_mensaje_institucional(params, body):
         raise ApiError(400, 'Escribe un mensaje o adjunta una foto.')
     if not texto:
         texto = '(Foto)'
-    if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente'):
+    if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente', 'autoridad', 'todos_autoridades'):
         raise ApiError(400, 'Destino no válido.')
-    if destino_tipo in ('tutor', 'docente') and not destino_id:
+    if destino_tipo in ('tutor', 'docente', 'autoridad') and not destino_id:
         raise ApiError(400, 'Selecciona el destinatario.')
     rem = row('SELECT * FROM usuarios WHERE id = ?', (remitente_id,))
-    if not rem or rem['rol'] not in ('rector', 'inspector', 'dece'):
-        raise ApiError(403, 'Solo autoridades pueden enviar este tipo de mensaje.')
+    if not rem:
+        raise ApiError(403, 'Usuario no válido.')
+    rol_rem = rem['rol']
+    # Autoridades → tutores/docentes
+    if rol_rem in ('rector', 'inspector', 'dece'):
+        if destino_tipo not in ('todos_docentes', 'todos_tutores', 'tutor', 'docente'):
+            raise ApiError(400, 'Destino no válido para autoridad.')
+    # Tutor o Docente → autoridades (respuesta / mensaje)
+    elif rol_rem in ('tutor', 'docente'):
+        if destino_tipo not in ('autoridad', 'todos_autoridades'):
+            raise ApiError(400, 'Solo puedes escribir a autoridades.')
+    else:
+        raise ApiError(403, 'No autorizado a enviar este mensaje.')
     mid = uid('mi')
     fecha = datetime.datetime.now(datetime.timezone.utc).isoformat()
     try:
@@ -1025,6 +1042,11 @@ def h_crear_mensaje_institucional(params, body):
         elif destino_tipo == 'todos_docentes':
             for _d in rows("SELECT id FROM usuarios WHERE rol='docente'"):
                 enviar_push_a_usuario(_d['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'autoridad' and destino_id:
+            enviar_push_a_usuario(destino_id, 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
+        elif destino_tipo == 'todos_autoridades':
+            for _a in rows("SELECT id FROM usuarios WHERE rol IN ('rector','inspector','dece')"):
+                enviar_push_a_usuario(_a['id'], 'Mensaje de ' + _nombre_a, _preview, {'tipo': 'institucional'})
     except Exception as _ex:
         print('notify inst error:', _ex)
     return 201, {'ok': True, 'mensajeId': mid, 'conFoto': bool(foto_url)}
@@ -1064,12 +1086,20 @@ def h_mensajes_institucionales_recibidos(params, body):
             "SELECT * FROM mensajes_institucionales WHERE destino_tipo = 'todos_docentes' OR (destino_tipo = 'docente' AND destino_id = ?) ORDER BY fecha DESC",
             (uid_user,),
         )
+    elif rol in ('rector', 'inspector', 'dece'):
+        lista = rows(
+            "SELECT * FROM mensajes_institucionales WHERE destino_tipo = 'todos_autoridades' OR (destino_tipo = 'autoridad' AND destino_id = ?) ORDER BY fecha DESC",
+            (uid_user,),
+        )
     else:
         lista = []
     out = []
     for m in lista:
-        rem = row('SELECT nombre FROM usuarios WHERE id = ?', (m['remitente_id'],))
-        out.append(ser_msg_inst(m, rem['nombre'] if rem else ''))
+        rem = row('SELECT nombre, rol FROM usuarios WHERE id = ?', (m['remitente_id'],))
+        d = ser_msg_inst(m, rem['nombre'] if rem else '')
+        if rem:
+            d['remitenteRol'] = rem.get('rol') or d.get('remitenteRol')
+        out.append(d)
     return 200, {'mensajes': out}
 
 
@@ -1610,6 +1640,7 @@ ROUTES = [
 
     ('POST', r'^/api/autoridades$', h_crear_autoridad),
     ('POST', r'^/api/autoridades/login$', h_login_autoridad),
+    ('GET', r'^/api/autoridades/lista$', h_lista_autoridades),
     ('GET', r'^/api/autoridades/tutores$', h_lista_tutores),
     ('GET', r'^/api/autoridades/docentes$', h_lista_docentes),
     ('POST', r'^/api/autoridades/mensajes$', h_crear_mensaje_institucional),
