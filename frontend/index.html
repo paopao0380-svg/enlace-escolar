@@ -1115,7 +1115,7 @@ async function render() {
   if (window._lockRender) return;
   enPantallaRegistro = false;
   const root = document.getElementById('root');
-  if (!session) { renderAuth(root); return; }
+  if (!session) { detenerMonitorInactividad(); renderAuth(root); return; }
   if (!me) {
     try {
       const r = await api('GET', `/api/usuarios/${session.usuarioId}`);
@@ -1199,11 +1199,63 @@ async function guardarNuevaClave() {
   } catch (e) { showToast(e.message); }
 }
 
-async function cerrarSesion() {
+async function cerrarSesion(opts) {
+  opts = opts || {};
+  detenerMonitorInactividad();
   session = null; me = null; ultimoConteoMensajes = null; docenteCursoActivo = null; msgSubTab = 'autoridades'; msgMainTab = 'recibidos';
+  adminKeySession = null;
   guardarSesionLocal();
+  if (opts.porInactividad) {
+    showToast('Sesión cerrada por inactividad. Vuelve a ingresar con tu clave.');
+  }
   render();
 }
+
+// ---- Seguridad: cierre por inactividad (5 minutos) ----
+const INACTIVIDAD_MS = 5 * 60 * 1000;
+let _inactTimer = null;
+let _inactBound = false;
+
+function detenerMonitorInactividad() {
+  if (_inactTimer) {
+    clearTimeout(_inactTimer);
+    _inactTimer = null;
+  }
+}
+
+function reiniciarTemporizadorInactividad() {
+  if (!session || !me) {
+    detenerMonitorInactividad();
+    return;
+  }
+  if (_inactTimer) clearTimeout(_inactTimer);
+  _inactTimer = setTimeout(function() {
+    if (session && me) {
+      cerrarSesion({ porInactividad: true });
+    }
+  }, INACTIVIDAD_MS);
+}
+
+function iniciarMonitorInactividad() {
+  if (_inactBound) {
+    reiniciarTemporizadorInactividad();
+    return;
+  }
+  _inactBound = true;
+  const eventos = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'input'];
+  eventos.forEach(function(ev) {
+    document.addEventListener(ev, function() {
+      if (session && me) reiniciarTemporizadorInactividad();
+    }, { passive: true });
+  });
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && session && me) {
+      reiniciarTemporizadorInactividad();
+    }
+  });
+  reiniciarTemporizadorInactividad();
+}
+
 
 function borrarTodo() {
   document.getElementById('ovBorrarTodo').classList.remove('hidden');
@@ -3365,7 +3417,8 @@ async function vincularRepresentante() {
 async function init() {
   session = cargarSesionLocal();
   ready = true;
-  render();
+  await render();
+  if (session && me) iniciarMonitorInactividad();
   // Sin refresco automático de pantalla (evita parpadeo).
   // Los datos se actualizan al cambiar de pestaña, al enviar o al reabrir la App.
 }
