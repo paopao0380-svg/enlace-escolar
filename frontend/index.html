@@ -950,16 +950,30 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
   ? 'http://localhost:3000'
   : 'https://enlace-escolar-vi.onrender.com';
 
-async function api(method, path, body) {
+async function api(method, path, body, opts) {
+  opts = opts || {};
+  const isUpload = path === '/api/fotos' || path === '/api/archivos';
+  const timeoutMs = opts.timeout || (isUpload ? 90000 : 25000);
   let res;
+  const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  let timer = null;
   try {
+    if (ctrl) timer = setTimeout(function() { try { ctrl.abort(); } catch (e) {} }, timeoutMs);
     res = await fetch(API_BASE + path, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl ? ctrl.signal : undefined,
     });
   } catch (e) {
-    throw new Error('No se pudo conectar con el servidor. Verifica que esté encendido y que la dirección (API_BASE) sea correcta.');
+    if (e && e.name === 'AbortError') {
+      throw new Error(isUpload
+        ? 'La subida está tardando mucho. Revisa tu internet e intenta de nuevo.'
+        : 'El servidor tardó demasiado en responder. Intenta de nuevo.');
+    }
+    throw new Error('No se pudo conectar con el servidor. Espera unos segundos e intenta de nuevo (a veces el servidor está despertando).');
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   let data = {};
   try { data = await res.json(); } catch (e) { /* respuesta vacía */ }
@@ -2026,7 +2040,7 @@ async function renderMensajesAutoridad(screen) {
     const foto = String(m.fotoUrl || m.foto_url || '').trim();
     if (!(foto && (foto.indexOf('http') === 0 || foto.indexOf('data:image') === 0))) return '';
     const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    return `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)"></div>`;
+    return `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto" loading="lazy" onclick="verFotoGrande(this.src)" onerror="reintentarCargaFoto(this)"></div>`;
   }
 
   function cardRecibido(m) {
@@ -2712,7 +2726,7 @@ function renderMensajes(screen, lista, mensajesInst) {
     const foto = String(m.fotoUrl || m.foto_url || m.foto || '').trim();
     if (foto && (foto.indexOf('http') === 0 || foto.indexOf('data:image') === 0)) {
       const safe = String(foto).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-      cuerpo += `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto adjunta" loading="lazy" onclick="verFotoGrande(this.src)" onerror="this.parentNode.innerHTML=\'<span class=\\\'stu-meta\\\'>No se pudo cargar la foto</span>\'"></div>`;
+      cuerpo += `<div class="msg-foto-wrap"><img class="msg-foto" src="${safe}" alt="Foto adjunta" loading="lazy" onclick="verFotoGrande(this.src)" onerror="reintentarCargaFoto(this)"></div>`;
     }
     try { cuerpo += htmlAdjuntoArchivo(m); } catch (e) {}
     const txt = (m.texto || '');
@@ -3388,7 +3402,12 @@ async function enviarMensaje() {
       closeOv('ovMensaje');
       showToast(me.rol === 'tutor' ? 'Mensaje entregado al representante.' : me.rol === 'representante' ? 'Mensaje enviado al Tutor.' : me.rol === 'docente' ? 'Mensaje enviado al Tutor y al Representante.' : 'Mensaje entregado al tutor y al representante.');
     }
-    render();
+    // Pequeña espera para que el enlace de la foto quede disponible
+    if (fotoUrl || (typeof archivoMeta !== 'undefined' && archivoMeta)) {
+      showToast('Mensaje enviado. Cargando adjuntos…');
+      await new Promise(function(r) { setTimeout(r, 800); });
+    }
+    await render();
   } catch (e) { showToast(e.message); }
 }
 
@@ -3586,8 +3605,8 @@ function quitarMensajeFoto() {
 }
 
 async function comprimirImagenArchivo(file, maxLado, calidad) {
-  maxLado = maxLado || 960;
-  calidad = calidad || 0.6;
+  maxLado = maxLado || 880;
+  calidad = calidad || 0.55;
   const bitmap = await createImageBitmap(file);
   let w = bitmap.width, h = bitmap.height;
   if (w > maxLado || h > maxLado) {
@@ -3633,8 +3652,33 @@ async function onMensajeFotoSeleccionada(ev) {
 
 async function subirFotoMensaje() {
   if (!mensajeFotoDataUrl) return '';
-  const r = await api('POST', '/api/fotos', { dataUrl: mensajeFotoDataUrl });
-  return (r && r.url) || '';
+  let lastErr = null;
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      if (intento === 1) showToast('Subiendo foto… un momento');
+      else showToast('Reintentando subida de foto…');
+      const r = await api('POST', '/api/fotos', { dataUrl: mensajeFotoDataUrl });
+      if (r && r.url) return r.url;
+      lastErr = 'Sin URL de foto';
+    } catch (e) {
+      lastErr = (e && e.message) ? e.message : 'Error de subida';
+    }
+  }
+  throw new Error(lastErr || 'No se pudo subir la foto.');
+}
+
+function reintentarCargaFoto(img) {
+  if (!img || !img.src) return;
+  const n = parseInt(img.dataset.retry || '0', 10);
+  if (n >= 3) {
+    img.parentNode.innerHTML = '<span class="stu-meta">La foto aún se está cargando. Baja y sube la lista o vuelve a Mensajes en unos segundos.</span>';
+    return;
+  }
+  img.dataset.retry = String(n + 1);
+  setTimeout(function() {
+    const sep = img.src.indexOf('?') >= 0 ? '&' : '?';
+    img.src = img.src.split('?')[0] + sep + 'r=' + Date.now();
+  }, 1200 * (n + 1));
 }
 
 function verFotoGrande(url) {
