@@ -31,6 +31,7 @@
   .stage{display:flex;justify-content:center;padding:24px 0;background:var(--paper);border-radius:16px;}
   .phone{width:390px;background:var(--paper);border:1px solid var(--line);border-radius:28px;overflow:hidden;position:relative;}
   #root{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;}
+  #root > .cfg-wrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .topbar,.tabbar{flex-shrink:0;}
   .topbar{padding:14px 18px 12px;background:linear-gradient(135deg,var(--azul),var(--azul-deep));}
   .brand{font-family:'Fraunces',serif;font-weight:600;font-size:18px;letter-spacing:-0.2px;display:flex;justify-content:space-between;align-items:center;color:#fff;}
@@ -59,7 +60,7 @@
     cursor:pointer;font-family:inherit;
   }
   .btn-salir:active{opacity:0.9;transform:scale(0.98);}
-  .screen{min-height:540px;max-height:640px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 18px 40px;position:relative;}
+  .screen{min-height:540px;max-height:640px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 18px 48px;position:relative;touch-action:pan-y;overscroll-behavior:contain;}
   .screen::-webkit-scrollbar{width:0;}
   .section-title{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:14px 0 10px;}
   .section-title:first-child{margin-top:0;}
@@ -207,16 +208,19 @@
   .authhero .appname .dot{color:#E8C547;}
 
   @media (max-width: 480px){
-    html, body{height:100%;width:100%;overflow:hidden;position:fixed;inset:0;}
-    .stage{padding:0;border-radius:0;min-height:100%;height:100%;width:100%;}
+    html, body{height:100%;width:100%;overflow:hidden;position:fixed;inset:0;touch-action:manipulation;}
+    .stage{padding:0;border-radius:0;min-height:100%;height:100%;width:100%;overflow:hidden;}
     .phone{width:100%;height:100%;max-height:100%;border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;overflow:hidden;position:relative;}
     #root{display:flex;flex-direction:column;flex:1;height:100%;min-height:0;overflow:hidden;}
-    .topbar,.tabbar{flex-shrink:0;}
-    .screen{flex:1 1 auto;min-height:0 !important;max-height:none !important;height:auto;overflow-y:scroll !important;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:16px 16px 160px 16px;overscroll-behavior:contain;touch-action:pan-y;}
-    .sheet{max-height:85vh;overflow-y:scroll !important;-webkit-overflow-scrolling:touch;padding-bottom:32px;touch-action:pan-y;}
+    .topbar,.tabbar{flex-shrink:0;position:relative;z-index:2;}
+    .screen{flex:1 1 auto;min-height:0 !important;max-height:none !important;height:100%;overflow-y:scroll !important;overflow-x:hidden !important;-webkit-overflow-scrolling:touch !important;padding:16px 16px 140px 16px;overscroll-behavior-y:contain;touch-action:pan-y !important;}
+    .sheet{max-height:85vh;overflow-y:scroll !important;-webkit-overflow-scrolling:touch !important;padding-bottom:40px;touch-action:pan-y !important;overscroll-behavior-y:contain;}
     .overlay{align-items:flex-end;overflow:hidden;}
-    .fab{position:fixed;bottom:18px;right:18px;}
-    #root > .authwrap{flex:1;min-height:0;overflow-y:scroll !important;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
+    .fab{position:fixed;bottom:18px;right:18px;z-index:30;}
+    #root > .authwrap{flex:1;min-height:0;overflow-y:scroll !important;-webkit-overflow-scrolling:touch !important;touch-action:pan-y !important;overscroll-behavior-y:contain;}
+    #root > .cfg-wrap{flex:1 1 auto;min-height:0 !important;height:100%;overflow-y:scroll !important;overflow-x:hidden !important;-webkit-overflow-scrolling:touch !important;touch-action:pan-y !important;overscroll-behavior-y:contain;padding-bottom:80px !important;-webkit-transform:translateZ(0);}
+    .cfg-section-b{max-height:none;}
+    .msg-tabs,.msg-tabs-main{flex-shrink:0;}
     body{font-size:15px;}
     .brand{font-size:19px;}
     .section-title{font-size:17.5px;}
@@ -484,7 +488,7 @@
     margin:0 !important;
   }
   .cfg-fab:active{transform:scale(0.94);}
-  .cfg-wrap{padding:0 0 40px;min-height:100%;background:#F7F4EE;}
+  .cfg-wrap{padding:0 0 80px;min-height:0;height:100%;background:#F7F4EE;box-sizing:border-box;}
   .cfg-head{
     background:linear-gradient(135deg,#1A2744 0%,#2F5F8F 100%);
     color:#fff;padding:18px 16px 16px;border-radius:0 0 18px 18px;
