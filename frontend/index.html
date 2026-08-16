@@ -1049,7 +1049,11 @@ function guardarSesionLocal() {
   try {
     if (session) localStorage.setItem('enlaceEscolarSession', JSON.stringify(session));
     else localStorage.removeItem('enlaceEscolarSession');
-  } catch (e) { /* almacenamiento no disponible: la sesión no persistirá al recargar */ }
+  } catch (e) {}
+  try {
+    if (session && me) iniciarMonitorInactividad();
+    else detenerMonitorInactividad();
+  } catch (e) {}
 }
 function cargarSesionLocal() {
   try {
@@ -1120,6 +1124,7 @@ async function render() {
     try {
       const r = await api('GET', `/api/usuarios/${session.usuarioId}`);
       me = r.usuario;
+      try { iniciarMonitorInactividad(); } catch (e) {}
       try { setTimeout(function(){ activarNotificacionesPush(me.id, false); }, 600); } catch (_e) {}
     } catch (e) {
       session = null; guardarSesionLocal(); renderAuth(root); return;
@@ -1213,48 +1218,54 @@ async function cerrarSesion(opts) {
 
 // ---- Seguridad: cierre por inactividad (5 minutos) ----
 const INACTIVIDAD_MS = 5 * 60 * 1000;
-let _inactTimer = null;
+let _ultimaActividad = Date.now();
+let _inactInterval = null;
 let _inactBound = false;
 
 function detenerMonitorInactividad() {
-  if (_inactTimer) {
-    clearTimeout(_inactTimer);
-    _inactTimer = null;
+  if (_inactInterval) {
+    clearInterval(_inactInterval);
+    _inactInterval = null;
   }
 }
 
-function reiniciarTemporizadorInactividad() {
+function marcarActividadUsuario() {
+  _ultimaActividad = Date.now();
+}
+
+function revisarInactividad() {
+  if (!session || !me) return;
+  const trascurrido = Date.now() - _ultimaActividad;
+  if (trascurrido >= INACTIVIDAD_MS) {
+    detenerMonitorInactividad();
+    cerrarSesion({ porInactividad: true });
+  }
+}
+
+function iniciarMonitorInactividad() {
   if (!session || !me) {
     detenerMonitorInactividad();
     return;
   }
-  if (_inactTimer) clearTimeout(_inactTimer);
-  _inactTimer = setTimeout(function() {
-    if (session && me) {
-      cerrarSesion({ porInactividad: true });
-    }
-  }, INACTIVIDAD_MS);
+  _ultimaActividad = Date.now();
+  if (!_inactBound) {
+    _inactBound = true;
+    // Solo actividad real (no mousemove: evita que el cursor reinicie el tiempo)
+    ['click', 'touchstart', 'keydown', 'input', 'submit'].forEach(function(ev) {
+      document.addEventListener(ev, function() {
+        if (session && me) marcarActividadUsuario();
+      }, true);
+    });
+    document.addEventListener('visibilitychange', function() {
+      // Al volver a la pestaña, revisar de inmediato si ya expiró
+      if (document.visibilityState === 'visible') revisarInactividad();
+    });
+  }
+  if (_inactInterval) clearInterval(_inactInterval);
+  // Revisa cada 15 s (más fiable que un solo setTimeout en pestañas en segundo plano)
+  _inactInterval = setInterval(revisarInactividad, 15000);
 }
 
-function iniciarMonitorInactividad() {
-  if (_inactBound) {
-    reiniciarTemporizadorInactividad();
-    return;
-  }
-  _inactBound = true;
-  const eventos = ['click', 'touchstart', 'keydown', 'mousemove', 'scroll', 'input'];
-  eventos.forEach(function(ev) {
-    document.addEventListener(ev, function() {
-      if (session && me) reiniciarTemporizadorInactividad();
-    }, { passive: true });
-  });
-  document.addEventListener('visibilitychange', function() {
-    if (document.visibilityState === 'visible' && session && me) {
-      reiniciarTemporizadorInactividad();
-    }
-  });
-  reiniciarTemporizadorInactividad();
-}
 
 
 function borrarTodo() {
@@ -3418,10 +3429,17 @@ async function init() {
   session = cargarSesionLocal();
   ready = true;
   await render();
-  if (session && me) iniciarMonitorInactividad();
-  // Sin refresco automático de pantalla (evita parpadeo).
-  // Los datos se actualizan al cambiar de pestaña, al enviar o al reabrir la App.
+  if (session && me) {
+    iniciarMonitorInactividad();
+  }
 }
+// Refuerzo: cada vez que haya sesión activa, asegurar el monitor
+setInterval(function() {
+  try {
+    if (session && me && !_inactInterval) iniciarMonitorInactividad();
+    if (session && me) revisarInactividad();
+  } catch (e) {}
+}, 20000);
 init();
 
 // Registro del service worker (requisito para que la app sea instalable)
